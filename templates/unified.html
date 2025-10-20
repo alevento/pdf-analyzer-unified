@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Analyzer Unified - v1.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .version-badge {
+            background-color: #3498db;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 2px solid #2980b9;
+        }
+
+        .pdf-type-badge {
+            background-color: #27ae60;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #229954;
+            display: none;
+        }
+
+        .pdf-type-badge.textual {
+            background-color: #27ae60;
+            border-color: #229954;
+        }
+
+        .pdf-type-badge.hybrid {
+            background-color: #f39c12;
+            border-color: #e67e22;
+        }
+
+        .pdf-type-badge.rasterized {
+            background-color: #e74c3c;
+            border-color: #c0392b;
+        }
+
+        .upload-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #fileInput {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .confidence-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #34495e;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #2c3e50;
+        }
+
+        .confidence-control label {
+            font-size: 13px;
+            color: #ecf0f1;
+            white-space: nowrap;
+        }
+
+        .confidence-control input[type="number"] {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #95a5a6;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #status {
+            color: #ecf0f1;
+            font-size: 14px;
+        }
+
+        .selected-text-box {
+            background-color: #e8f4f8;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 50px;
+        }
+
+        .selected-text-box strong {
+            color: #2c3e50;
+        }
+
+        #selectedText {
+            color: #2980b9;
+            font-size: 18px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+            min-height: 600px;
+        }
+
+        .left-panel, .right-panel {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .right-panel {
+            max-width: 380px;
+        }
+
+        .left-panel h2, .right-panel h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 18px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .controls-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            background-color: #d5dbdb;
+        }
+
+        .tab-btn.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .control-section {
+            display: none;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .control-section.active {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        .control-group select,
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .zoom-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .zoom-level {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .image-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 500px;
+            max-height: 700px;
+            position: relative;
+            background-color: #fafafa;
+        }
+
+        .image-container img {
+            display: block;
+            cursor: crosshair;
+            transition: transform 0.2s;
+            transform-origin: top left;
+        }
+
+        .highlight-overlay {
+            position: absolute;
+            pointer-events: none;
+            border: 5px solid #FFD700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            animation: pulse-box 1.5s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        @keyframes pulse-box {
+            0%, 100% {
+                border-color: #FFD700;
+                box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+                transform: scale(1);
+            }
+            50% {
+                border-color: #FFA500;
+                box-shadow: 0 0 30px rgba(255, 165, 0, 1);
+                transform: scale(1.05);
+            }
+        }
+
+        .text-list {
+            overflow-y: auto;
+            max-height: 600px;
+        }
+
+        .text-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .text-item:hover {
+            background-color: #e9ecef;
+            border-color: #3498db;
+            border-width: 3px;
+            transform: translateX(5px);
+        }
+
+        .text-item.highlighted {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            border-width: 3px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                background-color: #fff3cd;
+                border-color: #ffc107;
+                box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+            }
+            50% {
+                background-color: #ffd700;
+                border-color: #ff9800;
+                box-shadow: 0 0 15px 5px rgba(255, 193, 7, 0.5);
+            }
+        }
+
+        .text-content {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 16px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .text-info {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .text-count {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: #d6eaf8;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .text-confidence {
+            font-size: 12px;
+            color: #6c757d;
+            background-color: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .text-source {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .source-0deg {
+            background-color: #d6eaf8;
+            color: #0066FF;
+        }
+
+        .source-90deg {
+            background-color: #fadff5;
+            color: #FF00FF;
+        }
+
+        .source-date {
+            background-color: #ffe5d9;
+            color: #FF6B35;
+        }
+
+        .source-ref {
+            background-color: #e8daff;
+            color: #9D4EDD;
+        }
+
+        .source-unit {
+            background-color: #d4fff0;
+            color: #06FFA5;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #3498db;
+        }
+
+        .number-count {
+            background-color: #e8f4f8;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #2c3e50;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-box {
+            width: 20px;
+            height: 15px;
+            border: 3px solid;
+            border-radius: 3px;
+        }
+
+        .legend-box.blue {
+            border-color: #0066FF;
+        }
+
+        .legend-box.magenta {
+            border-color: #FF00FF;
+        }
+
+        /* Scrollbar personalizzata */
+        .text-list::-webkit-scrollbar, .image-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .text-list::-webkit-scrollbar-track, .image-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .text-list::-webkit-scrollbar-thumb, .image-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .text-list::-webkit-scrollbar-thumb:hover, .image-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* AI Results Styling */
+        .ai-result {
+            background-color: #f8f9fa;
+            border: 2px solid #9b59b6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .ai-result h3 {
+            color: #9b59b6;
+            margin-bottom: 10px;
+            font-size: 16px;
+            border-bottom: 2px solid #9b59b6;
+            padding-bottom: 5px;
+        }
+
+        .ai-result-item {
+            background-color: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #9b59b6;
+        }
+
+        .ai-result pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .ai-loading {
+            text-align: center;
+            padding: 20px;
+            color: #9b59b6;
+            font-style: italic;
+        }
+
+        .ai-error {
+            background-color: #ffe8e8;
+            border: 2px solid #e74c3c;
+            border-radius: 8px;
+            padding: 15px;
+            color: #c0392b;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1>PDF Analyzer Unified - Estrazione Avanzata</h1>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="pdf-type-badge" id="pdfTypeBadge">PDF Type</span>
+                    <span class="version-badge">v0.15 + AI</span>
+                </div>
+            </div>
+            <div class="upload-section">
+                <input type="file" id="fileInput" accept=".pdf" />
+                <button id="uploadBtn" class="btn">Carica PDF</button>
+                <span id="status"></span>
+            </div>
+        </header>
+
+        <div class="selected-text-box" id="selectedTextBox">
+            <strong>Testo selezionato:</strong> <span id="selectedText">Clicca su un elemento nella lista o nel documento</span>
+        </div>
+
+        <div class="main-content">
+            <!-- Left Panel: PDF Viewer with Controls -->
+            <div class="left-panel">
+                <h2>Documento</h2>
+
+                <!-- Tabs for different extraction modes -->
+                <div class="controls-tabs">
+                    <button class="tab-btn active" data-tab="numbers">Estrazione Numeri Avanzata</button>
+                    <button class="tab-btn" data-tab="pdfplumber">PDFPlumber</button>
+                    <button class="tab-btn" data-tab="ocr">OCR Standard</button>
+                    <button class="tab-btn" data-tab="ai" style="background-color: #9b59b6; color: white;">AI Analysis (Opus)</button>
+                </div>
+
+                <!-- Numbers Extraction Controls -->
+                <div id="numbers-controls" class="control-section active">
+                    <div class="control-group">
+                        <label for="pageSelectNumbers">Pagina:</label>
+                        <input type="number" id="pageSelectNumbers" min="1" value="1" disabled>
+                    </div>
+                    <div class="control-group">
+                        <label for="confidenceThreshold">Soglia confidenza (%):</label>
+                        <input type="number" id="confidenceThreshold" min="0" max="100" value="60" disabled>
+                    </div>
+                    <button class="btn btn-success" id="extractNumbersBtn" style="width: 100%; margin-top: 10px;" disabled>
+                        Estrai Numeri Avanzato (0° + 90°)
+                    </button>
+                </div>
+
+                <!-- PDFPlumber Controls -->
+                <div id="pdfplumber-controls" class="control-section">
+                    <div class="control-group">
+                        <label for="pageSelectPdfplumber">Pagina:</label>
+                        <input type="number" id="pageSelectPdfplumber" min="1" value="1" disabled>
+                    </div>
+                    <div class="control-group">
+                        <label for="rotationSelect">Rotazione:</label>
+                        <select id="rotationSelect" disabled>
+                            <option value="0">0°</option>
+                            <option value="90">90°</option>
+                            <option value="180">180°</option>
+                            <option value="270">270°</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="extractPdfplumberBtn" style="width: 100%; margin-top: 10px;" disabled>
+                        Estrai con pdfplumber
+                    </button>
+                </div>
+
+                <!-- OCR Standard Controls -->
+                <div id="ocr-controls" class="control-section">
+                    <div class="control-group">
+                        <label for="pageSelectOcr">Pagina:</label>
+                        <input type="number" id="pageSelectOcr" min="1" value="1" disabled>
+                    </div>
+                    <div class="control-group">
+                        <label for="psmSelect">OCR PSM Mode:</label>
+                        <select id="psmSelect" disabled>
+                            <option value="6">6 - Blocco uniforme</option>
+                            <option value="12">12 - Testo sparso + OSD</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="extractOcrBtn" style="width: 100%; margin-top: 10px;" disabled>
+                        Estrai con OCR
+                    </button>
+                </div>
+
+                <!-- AI Analysis Controls -->
+                <div id="ai-controls" class="control-section">
+                    <div class="control-group">
+                        <div id="opusStatus" style="padding: 10px; background-color: #e8f4f8; border-radius: 4px; margin-bottom: 10px; text-align: center; font-size: 13px;">
+                            Verifica stato...
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button class="btn" id="analyzeBtn" style="background-color: #9b59b6; width: 100%;" disabled>
+                            1. Analizza Dati
+                        </button>
+                        <button class="btn" id="visionBtn" style="background-color: #e74c3c; width: 100%;" disabled>
+                            2. Visione AI
+                        </button>
+                        <button class="btn" id="summarizeBtn" style="background-color: #27ae60; width: 100%;" disabled>
+                            4. Riepiloga
+                        </button>
+                    </div>
+                    <div class="control-group" style="margin-top: 10px;">
+                        <label for="questionInput">3. Fai una domanda:</label>
+                        <textarea id="questionInput" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical;" placeholder="Es: Quali sono le dimensioni principali?" disabled></textarea>
+                        <button class="btn" id="askBtn" style="background-color: #f39c12; width: 100%; margin-top: 5px;" disabled>
+                            Chiedi a Opus
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Zoom Controls -->
+                <div class="zoom-controls" id="zoomControls" style="display: none;">
+                    <button class="zoom-btn" id="zoomOut">-</button>
+                    <button class="zoom-btn" id="zoomReset">100%</button>
+                    <button class="zoom-btn" id="zoomIn">+</button>
+                    <span class="zoom-level" id="zoomLevel">100%</span>
+                </div>
+
+                <!-- Legend -->
+                <div class="legend" id="legend" style="display: none;">
+                    <div class="legend-item">
+                        <div class="legend-box blue"></div>
+                        <span>Numeri</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="border-color: #FF6B35;"></div>
+                        <span>Date</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="border-color: #9D4EDD;"></div>
+                        <span>Riferimenti</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="border-color: #06FFA5;"></div>
+                        <span>Unità</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box magenta"></div>
+                        <span>Verticali</span>
+                    </div>
+                </div>
+
+                <!-- Image Container -->
+                <div class="image-container" id="imageContainer">
+                    <p class="placeholder">Carica un file PDF per iniziare</p>
+                </div>
+            </div>
+
+            <!-- Right Panel: Extracted Numbers/Text -->
+            <div class="right-panel">
+                <h2 id="rightPanelTitle">Risultati</h2>
+                <div id="numberCount" class="number-count" style="display: none;"></div>
+
+                <!-- Download Buttons -->
+                <div id="downloadButtons" style="display: none; margin-bottom: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                        <button class="btn" onclick="downloadResults('txt')" style="padding: 8px; font-size: 12px; background-color: #27ae60;">
+                            📄 TXT
+                        </button>
+                        <button class="btn" onclick="downloadResults('csv')" style="padding: 8px; font-size: 12px; background-color: #2ecc71;">
+                            📊 CSV
+                        </button>
+                        <button class="btn" onclick="downloadResults('json')" style="padding: 8px; font-size: 12px; background-color: #16a085;">
+                            💾 JSON
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-list" id="textList">
+                    <p class="placeholder">I risultati appariranno qui</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='unified.js') }}"></script>
+</body>
+</html>

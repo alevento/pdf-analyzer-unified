@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Analyzer - Intelligent Text Extraction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .file-input-label {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            background: #5568d3;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            color: #666;
+            font-style: italic;
+        }
+
+        .pdf-type-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .badge-textual {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-rasterized {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-hybrid {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .panel-content {
+            padding: 20px;
+        }
+
+        .pdf-viewer-container {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: #f8f9fa;
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .pdf-viewer-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .placeholder svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .control-group select,
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102,126,234,0.3);
+        }
+
+        .btn-secondary {
+            background: #764ba2;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #63408a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(118,75,162,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .text-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 600px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 700px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-bar {
+            background: #e9ecef;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PDF Analyzer - Intelligent Text Extraction</h1>
+        <p>Analisi automatica PDF con rilevamento tipo documento e estrazione intelligente</p>
+    </div>
+
+    <div class="container">
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label for="file-input" class="file-input-label">
+                    Carica PDF
+                </label>
+                <input type="file" id="file-input" accept=".pdf">
+                <span class="file-name" id="file-name">Nessun file selezionato</span>
+                <span id="pdf-type-badge"></span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Left Panel: PDF Viewer -->
+            <div class="panel">
+                <div class="panel-header">Visualizzatore PDF</div>
+                <div class="panel-content">
+                    <div class="pdf-viewer-container" id="pdf-viewer">
+                        <div class="placeholder">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <p>Carica un PDF per iniziare</p>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <div class="control-group">
+                            <label for="page-select">Pagina:</label>
+                            <input type="number" id="page-select" min="1" value="1" disabled>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="rotation-select">Rotazione:</label>
+                            <select id="rotation-select" disabled>
+                                <option value="0">0°</option>
+                                <option value="90">90°</option>
+                                <option value="180">180°</option>
+                                <option value="270">270°</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="psm-select">OCR PSM Mode:</label>
+                            <select id="psm-select" disabled>
+                                <option value="6">6 - Blocco uniforme</option>
+                                <option value="12">12 - Testo sparso + OSD</option>
+                            </select>
+                        </div>
+
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="extract-pdfplumber" disabled>
+                                Estrai con pdfplumber
+                            </button>
+                            <button class="btn btn-secondary" id="extract-ocr" disabled>
+                                Estrai con OCR
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="status-bar" id="status-bar">
+                        Pronto
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Extracted Text -->
+            <div class="panel">
+                <div class="panel-header">Testo Estratto</div>
+                <div class="panel-content">
+                    <div class="text-display" id="text-display">
+Carica un PDF per visualizzare il testo estratto automaticamente.
+
+L'applicazione:
+- Rileva automaticamente il tipo di PDF (testuale/rasterizzato/ibrido)
+- Estrae il testo completo da tutte le pagine
+- Permette estrazioni personalizzate per singola pagina
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPageCount = 1;
+        let currentPage = 0;
+
+        const fileInput = document.getElementById('file-input');
+        const fileName = document.getElementById('file-name');
+        const pdfTypeBadge = document.getElementById('pdf-type-badge');
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const textDisplay = document.getElementById('text-display');
+        const statusBar = document.getElementById('status-bar');
+        const pageSelect = document.getElementById('page-select');
+        const rotationSelect = document.getElementById('rotation-select');
+        const psmSelect = document.getElementById('psm-select');
+        const extractPdfplumberBtn = document.getElementById('extract-pdfplumber');
+        const extractOcrBtn = document.getElementById('extract-ocr');
+
+        fileInput.addEventListener('change', handleFileUpload);
+        pageSelect.addEventListener('change', handlePageChange);
+        extractPdfplumberBtn.addEventListener('click', handleExtractPdfplumber);
+        extractOcrBtn.addEventListener('click', handleExtractOcr);
+
+        function setStatus(message, loading = false) {
+            if (loading) {
+                statusBar.innerHTML = `<span class="loading"></span> ${message}`;
+            } else {
+                statusBar.textContent = message;
+            }
+        }
+
+        function enableControls(enable) {
+            pageSelect.disabled = !enable;
+            rotationSelect.disabled = !enable;
+            psmSelect.disabled = !enable;
+            extractPdfplumberBtn.disabled = !enable;
+            extractOcrBtn.disabled = !enable;
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileName.textContent = file.name;
+            setStatus('Caricamento e analisi in corso...', true);
+            enableControls(false);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Display PDF type
+                    const typeClass = `badge-${data.pdf_type}`;
+                    pdfTypeBadge.className = `pdf-type-badge ${typeClass}`;
+                    pdfTypeBadge.textContent = `Tipo: ${data.pdf_type.toUpperCase()}`;
+
+                    // Update page controls
+                    currentPageCount = data.page_count;
+                    pageSelect.max = data.page_count;
+                    pageSelect.value = 1;
+                    currentPage = 0;  // Pages are 0-indexed in backend
+
+                    // Display first page
+                    pdfViewer.innerHTML = `<img src="data:image/png;base64,${data.page_image}" alt="PDF Page">`;
+
+                    // Display extracted text
+                    textDisplay.textContent = data.full_text;
+
+                    setStatus(`PDF analizzato: ${data.page_count} pagine, tipo ${data.pdf_type}`);
+                    enableControls(true);
+                } else {
+                    setStatus(`Errore: ${data.error}`);
+                }
+            } catch (error) {
+                setStatus(`Errore: ${error.message}`);
+            }
+        }
+
+        async function handlePageChange(event) {
+            const pageNum = parseInt(event.target.value) - 1;
+            if (pageNum < 0 || pageNum >= currentPageCount) return;
+
+            currentPage = pageNum;
+            setStatus('Caricamento pagina...', true);
+
+            try {
+                const response = await fetch(`/get_page/${pageNum}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    pdfViewer.innerHTML = `<img src="data:image/png;base64,${data.page_image}" alt="PDF Page">`;
+                    setStatus(`Pagina ${pageNum + 1} di ${currentPageCount}`);
+                } else {
+                    setStatus(`Errore: ${data.error}`);
+                }
+            } catch (error) {
+                setStatus(`Errore: ${error.message}`);
+            }
+        }
+
+        async function handleExtractPdfplumber() {
+            const rotation = parseInt(rotationSelect.value);
+            setStatus('Estrazione con pdfplumber...', true);
+            extractPdfplumberBtn.disabled = true;
+
+            try {
+                const response = await fetch('/extract_pdfplumber', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        page_num: currentPage,
+                        rotation: rotation
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let output = `=== Pagina ${currentPage + 1} - Estrazione pdfplumber ===\n\n`;
+
+                    data.data.forEach(item => {
+                        output += `Testo: '${item.text}'\n`;
+                        output += `  Posizione: (${item.x0.toFixed(2)}, ${item.y0.toFixed(2)}) -> (${item.x1.toFixed(2)}, ${item.y1.toFixed(2)})\n`;
+                        output += `  Dimensioni: ${item.width.toFixed(2)} x ${item.height.toFixed(2)}\n\n`;
+                    });
+
+                    output += `\nTotale parole estratte: ${data.word_count}\n`;
+
+                    textDisplay.textContent = output;
+                    setStatus(`Estratte ${data.word_count} parole con pdfplumber`);
+                } else {
+                    setStatus(`Errore: ${data.error}`);
+                }
+            } catch (error) {
+                setStatus(`Errore: ${error.message}`);
+            } finally {
+                extractPdfplumberBtn.disabled = false;
+            }
+        }
+
+        async function handleExtractOcr() {
+            const psmMode = parseInt(psmSelect.value);
+            const rotation = parseInt(rotationSelect.value);
+            setStatus(`Estrazione con OCR (PSM ${psmMode})...`, true);
+            extractOcrBtn.disabled = true;
+
+            try {
+                const response = await fetch('/extract_ocr', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        page_num: currentPage,
+                        psm_mode: psmMode,
+                        rotation: rotation
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Calculate average confidence
+                    let totalConf = 0;
+                    let confCount = 0;
+                    data.words.forEach(word => {
+                        if (word.conf >= 0) {
+                            totalConf += word.conf;
+                            confCount++;
+                        }
+                    });
+                    const avgConf = confCount > 0 ? (totalConf / confCount).toFixed(1) : 0;
+
+                    let output = `=== Pagina ${currentPage + 1} - Estrazione OCR (PSM ${psmMode}) ===\n`;
+                    output += `Confidenza media: ${avgConf}%\n`;
+                    output += `Parole estratte: ${data.word_count}\n\n`;
+                    output += '--- TESTO ESTRATTO ---\n\n';
+                    output += data.text;
+                    output += '\n\n--- DATI DETTAGLIATI PAROLE (con coordinate e confidenza) ---\n\n';
+
+                    data.words.forEach(word => {
+                        const confColor = word.conf >= 80 ? '✓' : word.conf >= 60 ? '○' : '✗';
+                        output += `${confColor} "${word.text}" - Confidenza: ${word.conf}% | Posizione: (${word.left}, ${word.top}) | Dimensioni: ${word.width}x${word.height}\n`;
+                    });
+
+                    textDisplay.textContent = output;
+                    setStatus(`Estrazione OCR completa (PSM ${psmMode}): ${data.word_count} parole, confidenza media ${avgConf}%`);
+                } else {
+                    setStatus(`Errore: ${data.error}`);
+                }
+            } catch (error) {
+                setStatus(`Errore: ${error.message}`);
+            } finally {
+                extractOcrBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

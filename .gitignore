@@ -17,6 +17,12 @@ build/
 # Uploads folder
 uploads/
 
+# Saved templates
+saved_templates/
+
+# Saved dimension prompts
+saved_dimension_prompts/
+
 # IDE
 .vscode/
 .idea/

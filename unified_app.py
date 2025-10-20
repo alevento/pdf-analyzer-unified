@@ -24,6 +24,9 @@ import csv
 import datetime
 from anthropic import Anthropic
 from dotenv import load_dotenv
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
+import uuid
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,10 +39,14 @@ if os.name == 'nt':
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['TEMPLATES_FOLDER'] = 'saved_templates'
+app.config['DIMENSION_PROMPTS_FOLDER'] = 'saved_dimension_prompts'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 ALLOWED_EXTENSIONS = {'pdf'}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['TEMPLATES_FOLDER'], exist_ok=True)
+os.makedirs(app.config['DIMENSION_PROMPTS_FOLDER'], exist_ok=True)
 
 # Configure Anthropic API
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -1819,6 +1826,19 @@ def opus_analyze():
         # Call Opus analysis
         analysis_result = analyze_text_with_opus(all_numbers, pdf_type)
 
+        # Save analysis results for template generation
+        if analysis_result.get('success'):
+            ai_results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ai_results.json')
+            existing_data = {}
+            if os.path.exists(ai_results_path):
+                with open(ai_results_path, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+
+            existing_data['analysis'] = analysis_result.get('analysis')
+
+            with open(ai_results_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_data, f, ensure_ascii=False, indent=2)
+
         return jsonify(analysis_result)
 
     except Exception as e:
@@ -1908,6 +1928,19 @@ def opus_summarize():
         # Call Opus summarization
         summary_result = summarize_document(full_text, extracted_data, pdf_type)
 
+        # Save summary results for template generation
+        if summary_result.get('success'):
+            ai_results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ai_results.json')
+            existing_data = {}
+            if os.path.exists(ai_results_path):
+                with open(ai_results_path, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+
+            existing_data['summary'] = summary_result.get('summary')
+
+            with open(ai_results_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_data, f, ensure_ascii=False, indent=2)
+
         return jsonify(summary_result)
 
     except Exception as e:
@@ -1930,20 +1963,29 @@ def opus_status():
     })
 
 
-@app.route('/download_results/<format>')
+@app.route('/download_results/<format>', methods=['POST'])
 def download_results(format='txt'):
     """Download extraction results in various formats (txt, csv, json)"""
     try:
-        # Load extraction results
-        results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
-        if not os.path.exists(results_path):
-            return jsonify({'error': 'Nessun dato estratto disponibile'}), 404
+        # Get data from request body
+        request_data = request.get_json()
 
-        with open(results_path, 'r', encoding='utf-8') as f:
-            results = json.load(f)
+        if request_data and 'data' in request_data:
+            # Use data sent from frontend (currently displayed results)
+            all_numbers = request_data['data']
+            extraction_method = 'current_view'
+        else:
+            # Fallback: Load from file if no data sent
+            results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+            if not os.path.exists(results_path):
+                return jsonify({'error': 'Nessun dato estratto disponibile'}), 404
 
-        all_numbers = results.get('all_numbers', [])
-        extraction_method = results.get('extraction_method', 'unknown')
+            with open(results_path, 'r', encoding='utf-8') as f:
+                results = json.load(f)
+
+            all_numbers = results.get('all_numbers', [])
+            extraction_method = results.get('extraction_method', 'unknown')
+
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
         if format == 'txt':
@@ -2046,6 +2088,644 @@ def download_results(format='txt'):
         import traceback
         print(f"Errore download: {traceback.format_exc()}")
         return jsonify({'error': f'Errore durante il download: {str(e)}'}), 500
+
+
+@app.route('/get_extraction_results', methods=['GET'])
+def get_extraction_results():
+    """Return OCR/pdfplumber extraction results"""
+    try:
+        results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+        if not os.path.exists(results_path):
+            return jsonify({'success': False, 'error': 'No results available'}), 404
+
+        with open(results_path, 'r', encoding='utf-8') as f:
+            results = json.load(f)
+
+        return jsonify({
+            'success': True,
+            'numbers': results.get('all_numbers', []),
+            'extraction_method': results.get('extraction_method', 'unknown')
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/get_pdf_text', methods=['GET'])
+def get_pdf_text():
+    """Return full PDF text extracted with pdfplumber"""
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'error': 'No PDF loaded'}), 404
+
+        processor = PDFProcessor(filepath)
+        full_text = processor.get_full_text_pdfplumber()
+
+        return jsonify({
+            'success': True,
+            'text': full_text
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/get_ai_results', methods=['GET'])
+def get_ai_results():
+    """Return stored AI analysis and summary results"""
+    try:
+        ai_results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ai_results.json')
+
+        if not os.path.exists(ai_results_path):
+            return jsonify({
+                'success': True,
+                'analysis': None,
+                'summary': None
+            })
+
+        with open(ai_results_path, 'r', encoding='utf-8') as f:
+            ai_results = json.load(f)
+
+        return jsonify({
+            'success': True,
+            'analysis': ai_results.get('analysis'),
+            'summary': ai_results.get('summary')
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def generate_excel_from_template_with_opus(template_text, extracted_data):
+    """
+    Use Claude Opus to interpret template and generate Excel file
+    """
+    if not anthropic_client and not DEMO_MODE:
+        return {'error': 'Claude Opus not configured'}
+
+    # Prepare data summary for Opus
+    data_summary = {
+        'ocr_numbers': extracted_data.get('ocr_numbers', []),
+        'pdfplumber_text_preview': extracted_data.get('pdfplumber_text', '')[:3000],  # First 3000 chars
+        'ai_analysis': extracted_data.get('ai_analysis'),
+        'ai_summary': extracted_data.get('ai_summary')
+    }
+
+    # Add dimensions if available
+    dimensions_data = extracted_data.get('dimensions')
+    if dimensions_data:
+        data_summary['dimensions'] = dimensions_data
+
+    prompt = f"""Hai ricevuto un template per creare un file Excel/CSV e dei dati estratti da un PDF.
+
+TEMPLATE RICHIESTO:
+{template_text}
+
+DATI DISPONIBILI:
+{json.dumps(data_summary, indent=2, ensure_ascii=False)}
+
+Il tuo compito è:
+1. Interpretare il template e capire quale struttura di Excel/CSV viene richiesta
+2. Mappare i dati estratti (numeri OCR, testo pdfplumber, analisi AI, dimensioni se presenti) ai campi del template
+3. Generare una struttura dati JSON che rappresenti il foglio Excel da creare
+
+{"IMPORTANTE: Sono disponibili dimensioni estratte dal disegno. Usa questi dati per popolare i campi di dimensione nel template." if dimensions_data else ""}
+
+Rispondi SOLO con un JSON in questo formato:
+{{
+  "sheet_name": "Nome del foglio",
+  "headers": ["Colonna1", "Colonna2", "Colonna3", ...],
+  "rows": [
+    ["valore1", "valore2", "valore3", ...],
+    ["valore4", "valore5", "valore6", ...],
+    ...
+  ],
+  "notes": "Note opzionali su come sono stati mappati i dati"
+}}
+
+Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con una nota esplicativa."""
+
+    try:
+        if DEMO_MODE:
+            # Return demo structure
+            return {
+                'success': True,
+                'excel_data': {
+                    'sheet_name': 'Dati Estratti (DEMO)',
+                    'headers': ['Campo', 'Valore', 'Fonte'],
+                    'rows': [
+                        ['Template', 'Demo Mode Attivo', 'Sistema'],
+                        ['Nota', 'Configura API key per elaborazione reale', 'Sistema']
+                    ],
+                    'notes': 'Esempio generato in DEMO MODE'
+                }
+            }
+
+        message = anthropic_client.messages.create(
+            model="claude-opus-4-20250514",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = message.content[0].text
+
+        # Try to parse JSON from response
+        try:
+            # Remove markdown code blocks if present
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0]
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0]
+
+            excel_data = json.loads(response_text.strip())
+            return {'success': True, 'excel_data': excel_data}
+
+        except json.JSONDecodeError as e:
+            return {'error': f'Invalid JSON response from Opus: {str(e)}'}
+
+    except Exception as e:
+        return {'error': f'Error calling Claude Opus: {str(e)}'}
+
+
+@app.route('/generate_from_template', methods=['POST'])
+def generate_from_template():
+    """
+    Generate Excel/CSV file from template using Claude Opus
+    """
+    try:
+        data = request.json
+        template = data.get('template')
+        extracted_data = data.get('data')
+
+        if not template:
+            return jsonify({'error': 'Template non fornito'}), 400
+
+        if not extracted_data:
+            return jsonify({'error': 'Dati estratti non disponibili'}), 400
+
+        # Use Opus to interpret template and generate structure
+        result = generate_excel_from_template_with_opus(template, extracted_data)
+
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 500
+
+        excel_data = result['excel_data']
+
+        # Create Excel file
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = excel_data.get('sheet_name', 'Dati')[:31]  # Excel limit
+
+        # Style for headers
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        header_alignment = Alignment(horizontal='center', vertical='center')
+
+        # Write headers
+        headers = excel_data.get('headers', [])
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+
+        # Write rows
+        rows = excel_data.get('rows', [])
+        for row_idx, row_data in enumerate(rows, 2):
+            for col_idx, value in enumerate(row_data, 1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+
+        # Adjust column widths
+        for col_idx in range(1, len(headers) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 20
+
+        # Add notes if present
+        notes = excel_data.get('notes', '')
+        if notes:
+            notes_row = len(rows) + 3
+            ws.cell(row=notes_row, column=1, value='Note:')
+            ws.cell(row=notes_row + 1, column=1, value=notes)
+            ws.merge_cells(start_row=notes_row + 1, start_column=1,
+                          end_row=notes_row + 1, end_column=len(headers))
+
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'template_output_{timestamp}.xlsx'
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        import traceback
+        print(f"Errore generazione da template: {traceback.format_exc()}")
+        return jsonify({'error': f'Errore: {str(e)}'}), 500
+
+
+# ============================================================================
+# TEMPLATE LIBRARY ROUTES
+# ============================================================================
+
+@app.route('/get_pdf_info', methods=['GET'])
+def get_pdf_info():
+    """Get PDF information (page count, type, etc.)"""
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'No PDF loaded'}), 404
+
+        processor = PDFProcessor(filepath)
+        pdf_type, _ = processor.detect_pdf_type()
+        page_count = processor.get_page_count()
+
+        return jsonify({
+            'success': True,
+            'page_count': page_count,
+            'pdf_type': pdf_type
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/extract_all_pages_pdfplumber', methods=['POST'])
+def extract_all_pages_pdfplumber():
+    """Extract data from all pages using pdfplumber"""
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'No PDF loaded'}), 404
+
+        processor = PDFProcessor(filepath)
+        page_count = processor.get_page_count()
+
+        all_data = []
+        for page_num in range(page_count):
+            page_data = extract_numbers_from_pdfplumber(filepath, page_num)
+            all_data.extend(page_data)
+
+        # Save to results file
+        results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+        existing_data = {}
+        if os.path.exists(results_path):
+            with open(results_path, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+
+        existing_data['all_numbers'] = all_data
+        existing_data['extraction_method'] = 'pdfplumber'
+
+        with open(results_path, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'total_items': len(all_data),
+            'pages_processed': page_count
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Error extracting all pages: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_templates', methods=['GET'])
+def get_templates():
+    """Get list of saved templates"""
+    try:
+        templates_file = os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
+
+        if not os.path.exists(templates_file):
+            return jsonify({'templates': []})
+
+        with open(templates_file, 'r', encoding='utf-8') as f:
+            templates_data = json.load(f)
+
+        return jsonify({'templates': templates_data.get('templates', [])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/save_template', methods=['POST'])
+def save_template():
+    """Save a new template"""
+    try:
+        data = request.json
+        template_name = data.get('name')
+        template_content = data.get('content')
+
+        if not template_name or not template_content:
+            return jsonify({'error': 'Nome e contenuto richiesti'}), 400
+
+        templates_file = os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
+
+        # Load existing templates
+        if os.path.exists(templates_file):
+            with open(templates_file, 'r', encoding='utf-8') as f:
+                templates_data = json.load(f)
+        else:
+            templates_data = {'templates': []}
+
+        # Check if name already exists
+        existing_names = [t['name'] for t in templates_data['templates']]
+        if template_name in existing_names:
+            return jsonify({'error': f'Template "{template_name}" già esistente'}), 400
+
+        # Create new template
+        template_id = str(uuid.uuid4())
+        new_template = {
+            'id': template_id,
+            'name': template_name,
+            'content': template_content,
+            'created_at': datetime.datetime.now().isoformat()
+        }
+
+        templates_data['templates'].append(new_template)
+
+        # Save updated templates
+        with open(templates_file, 'w', encoding='utf-8') as f:
+            json.dump(templates_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'template_id': template_id,
+            'message': f'Template "{template_name}" salvato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore salvataggio template: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_template/<template_id>', methods=['GET'])
+def get_template(template_id):
+    """Get a specific template by ID"""
+    try:
+        templates_file = os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
+
+        if not os.path.exists(templates_file):
+            return jsonify({'error': 'Template non trovato'}), 404
+
+        with open(templates_file, 'r', encoding='utf-8') as f:
+            templates_data = json.load(f)
+
+        # Find template
+        template = None
+        for t in templates_data['templates']:
+            if t['id'] == template_id:
+                template = t
+                break
+
+        if not template:
+            return jsonify({'error': 'Template non trovato'}), 404
+
+        return jsonify({
+            'success': True,
+            'template': template
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/delete_template/<template_id>', methods=['DELETE'])
+def delete_template(template_id):
+    """Delete a template"""
+    try:
+        templates_file = os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
+
+        if not os.path.exists(templates_file):
+            return jsonify({'error': 'Template non trovato'}), 404
+
+        with open(templates_file, 'r', encoding='utf-8') as f:
+            templates_data = json.load(f)
+
+        # Find and remove template
+        original_count = len(templates_data['templates'])
+        templates_data['templates'] = [t for t in templates_data['templates'] if t['id'] != template_id]
+
+        if len(templates_data['templates']) == original_count:
+            return jsonify({'error': 'Template non trovato'}), 404
+
+        # Save updated templates
+        with open(templates_file, 'w', encoding='utf-8') as f:
+            json.dump(templates_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'message': 'Template eliminato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore eliminazione template: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# DIMENSION PROMPT LIBRARY ROUTES
+# ============================================================================
+
+@app.route('/get_dimension_prompts', methods=['GET'])
+def get_dimension_prompts():
+    """Get list of saved dimension prompts"""
+    try:
+        prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'prompts': []})
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        return jsonify({'prompts': prompts_data.get('prompts', [])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/save_dimension_prompt', methods=['POST'])
+def save_dimension_prompt():
+    """Save a new dimension prompt"""
+    try:
+        data = request.json
+        prompt_name = data.get('name')
+        prompt_content = data.get('content')
+
+        if not prompt_name or not prompt_content:
+            return jsonify({'error': 'Nome e contenuto richiesti'}), 400
+
+        prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+
+        # Load existing prompts
+        if os.path.exists(prompts_file):
+            with open(prompts_file, 'r', encoding='utf-8') as f:
+                prompts_data = json.load(f)
+        else:
+            prompts_data = {'prompts': []}
+
+        # Check if name already exists
+        existing_names = [p['name'] for p in prompts_data['prompts']]
+        if prompt_name in existing_names:
+            return jsonify({'error': f'Prompt "{prompt_name}" già esistente'}), 400
+
+        # Create new prompt
+        prompt_id = str(uuid.uuid4())
+        new_prompt = {
+            'id': prompt_id,
+            'name': prompt_name,
+            'content': prompt_content,
+            'created_at': datetime.datetime.now().isoformat()
+        }
+
+        prompts_data['prompts'].append(new_prompt)
+
+        # Save updated prompts
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'prompt_id': prompt_id,
+            'message': f'Prompt "{prompt_name}" salvato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore salvataggio prompt: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_dimension_prompt/<prompt_id>', methods=['GET'])
+def get_dimension_prompt(prompt_id):
+    """Get a specific dimension prompt by ID"""
+    try:
+        prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Find prompt
+        prompt = None
+        for p in prompts_data['prompts']:
+            if p['id'] == prompt_id:
+                prompt = p
+                break
+
+        if not prompt:
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        return jsonify({
+            'success': True,
+            'prompt': prompt
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/delete_dimension_prompt/<prompt_id>', methods=['DELETE'])
+def delete_dimension_prompt(prompt_id):
+    """Delete a dimension prompt"""
+    try:
+        prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Find and remove prompt
+        original_count = len(prompts_data['prompts'])
+        prompts_data['prompts'] = [p for p in prompts_data['prompts'] if p['id'] != prompt_id]
+
+        if len(prompts_data['prompts']) == original_count:
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        # Save updated prompts
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'message': 'Prompt eliminato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore eliminazione prompt: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/extract_dimensions', methods=['POST'])
+def extract_dimensions():
+    """Extract dimensions from PDF page using Claude Opus Vision with custom prompt"""
+    try:
+        if not anthropic_client:
+            return jsonify({'error': 'Claude Opus non configurato. Aggiungi ANTHROPIC_API_KEY al file .env'}), 400
+
+        data = request.json
+        prompt = data.get('prompt')
+        image_base64 = data.get('image')
+
+        if not prompt or not image_base64:
+            return jsonify({'error': 'Prompt e immagine richiesti'}), 400
+
+        # Remove data URL prefix if present
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+
+        # Call Claude Opus Vision API with custom prompt
+        message = anthropic_client.messages.create(
+            model="claude-opus-4-20250514",
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        )
+
+        dimensions_text = message.content[0].text
+
+        return jsonify({
+            'success': True,
+            'dimensions': dimensions_text
+        })
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Errore estrazione dimensioni: {error_details}")
+        return jsonify({'error': f'Error calling Claude Opus: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

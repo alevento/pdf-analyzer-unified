@@ -6,6 +6,7 @@ let currentPageCount = 1;
 let currentPage = 0;
 let currentMode = 'numbers'; // 'numbers', 'pdfplumber', 'ocr', 'ai'
 let currentPageImage = null; // Store current page image for AI vision
+let currentDisplayData = null; // Store currently displayed data for download
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -181,6 +182,7 @@ async function uploadFile() {
             // Se ci sono numeri estratti automaticamente, visualizzali
             if (data.has_numbers && data.numbers && data.numbers.length > 0) {
                 currentNumbers = data.numbers;
+                currentDisplayData = data.numbers; // Store for download
                 displayNumbersList(data.numbers);
 
                 // Costruisci messaggio contatore basato sul metodo di estrazione
@@ -240,6 +242,7 @@ async function handleExtractNumbers() {
 
         if (data.success) {
             currentNumbers = data.numbers;
+            currentDisplayData = data.numbers; // Store for download
             displayImage(data.image);
             displayNumbersList(data.numbers);
             numberCount.textContent = `Trovati ${data.count} numeri (${data.count_0deg} orizzontali + ${data.count_90deg} verticali)`;
@@ -278,6 +281,10 @@ async function handleExtractPdfplumber() {
         const data = await response.json();
 
         if (data.success) {
+            // Hide download buttons for text-based pdfplumber output
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
+
             let output = `=== Pagina ${pageNum + 1} - Estrazione pdfplumber ===\n\n`;
             data.data.forEach(item => {
                 output += `Testo: '${item.text}'\n`;
@@ -315,6 +322,10 @@ async function handleExtractOcr() {
         const data = await response.json();
 
         if (data.success) {
+            // Hide download buttons for text-based OCR output
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
+
             let totalConf = 0;
             let confCount = 0;
             data.words.forEach(word => {
@@ -663,13 +674,22 @@ async function handleAnalyze() {
         if (data.error) {
             textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
             status.textContent = 'Errore analisi AI';
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
         } else if (data.success && data.analysis) {
             displayAnalysisResults(data.analysis);
+
+            // Convert analysis to downloadable format (array of items)
+            currentDisplayData = convertAnalysisToDownloadFormat(data.analysis);
+            document.getElementById('downloadButtons').style.display = 'block';
+
             status.textContent = 'Analisi AI completata';
         }
     } catch (error) {
         textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
         status.textContent = 'Errore connessione AI';
+        document.getElementById('downloadButtons').style.display = 'none';
+        currentDisplayData = null;
     } finally {
         analyzeBtn.disabled = false;
     }
@@ -680,6 +700,10 @@ async function handleVision() {
         status.textContent = 'Carica prima un PDF';
         return;
     }
+
+    // Hide download buttons for AI vision analysis (text-based)
+    document.getElementById('downloadButtons').style.display = 'none';
+    currentDisplayData = null;
 
     textList.innerHTML = '<div class="ai-loading">👁️ Analisi visione in corso con Claude Opus...</div>';
     visionBtn.disabled = true;
@@ -721,6 +745,10 @@ async function handleAsk() {
         alert('Inserisci una domanda');
         return;
     }
+
+    // Hide download buttons for AI Q&A (text-based)
+    document.getElementById('downloadButtons').style.display = 'none';
+    currentDisplayData = null;
 
     textList.innerHTML = '<div class="ai-loading">💬 Claude Opus sta pensando...</div>';
     askBtn.disabled = true;
@@ -772,13 +800,22 @@ async function handleSummarize() {
         if (data.error) {
             textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
             status.textContent = 'Errore riepilogo AI';
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
         } else if (data.success && data.summary) {
             displaySummaryResults(data.summary);
+
+            // Convert summary to downloadable format (array of items)
+            currentDisplayData = convertSummaryToDownloadFormat(data.summary);
+            document.getElementById('downloadButtons').style.display = 'block';
+
             status.textContent = 'Riepilogo AI completato';
         }
     } catch (error) {
         textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
         status.textContent = 'Errore connessione AI';
+        document.getElementById('downloadButtons').style.display = 'none';
+        currentDisplayData = null;
     } finally {
         summarizeBtn.disabled = false;
     }
@@ -889,6 +926,905 @@ function escapeHtml(text) {
 // DOWNLOAD RESULTS FUNCTION
 // ============================================================================
 
-function downloadResults(format) {
-    window.location.href = `/download_results/${format}`;
+async function downloadResults(format) {
+    if (!currentDisplayData || currentDisplayData.length === 0) {
+        alert('Nessun dato da scaricare');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/download_results/${format}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({data: currentDisplayData})
+        });
+
+        if (response.ok) {
+            // Create blob and download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            // Get filename from Content-Disposition header if available
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `pdf_extraction_${Date.now()}.${format}`;
+            if (contentDisposition) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                if (matches != null && matches[1]) {
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            status.textContent = `Download completato: ${filename}`;
+        } else {
+            alert('Errore durante il download');
+        }
+    } catch (error) {
+        alert('Errore: ' + error.message);
+    }
 }
+
+// ============================================================================
+// AI DATA CONVERSION FUNCTIONS FOR DOWNLOAD
+// ============================================================================
+
+function convertAnalysisToDownloadFormat(analysis) {
+    // Convert AI analysis object to array format suitable for download
+    const items = [];
+    let id = 0;
+
+    // Add key numbers
+    if (analysis.numeri_chiave && analysis.numeri_chiave.length > 0) {
+        analysis.numeri_chiave.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'numero_chiave',
+                confidence: 100,
+                source: 'ai_analysis'
+            });
+        });
+    }
+
+    // Add critical dates
+    if (analysis.date_critiche && analysis.date_critiche.length > 0) {
+        analysis.date_critiche.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'data_critica',
+                confidence: 100,
+                source: 'ai_analysis'
+            });
+        });
+    }
+
+    // Add references
+    if (analysis.riferimenti && analysis.riferimenti.length > 0) {
+        analysis.riferimenti.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'riferimento',
+                confidence: 100,
+                source: 'ai_analysis'
+            });
+        });
+    }
+
+    // Add anomalies
+    if (analysis.anomalie && analysis.anomalie.length > 0) {
+        analysis.anomalie.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'anomalia',
+                confidence: 100,
+                source: 'ai_analysis'
+            });
+        });
+    }
+
+    // Add patterns
+    if (analysis.pattern && analysis.pattern.length > 0) {
+        analysis.pattern.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'pattern',
+                confidence: 100,
+                source: 'ai_analysis'
+            });
+        });
+    }
+
+    // Add summary as last item
+    if (analysis.riepilogo) {
+        items.push({
+            id: id++,
+            text: analysis.riepilogo,
+            type: 'riepilogo',
+            confidence: 100,
+            source: 'ai_analysis'
+        });
+    }
+
+    return items;
+}
+
+function convertSummaryToDownloadFormat(summary) {
+    // Convert AI summary object to array format suitable for download
+    const items = [];
+    let id = 0;
+
+    // Add document type
+    if (summary.tipo_documento) {
+        items.push({
+            id: id++,
+            text: summary.tipo_documento,
+            type: 'tipo_documento',
+            confidence: 100,
+            source: 'ai_summary'
+        });
+    }
+
+    // Add purpose
+    if (summary.scopo) {
+        items.push({
+            id: id++,
+            text: summary.scopo,
+            type: 'scopo',
+            confidence: 100,
+            source: 'ai_summary'
+        });
+    }
+
+    // Add key information
+    if (summary.informazioni_chiave && summary.informazioni_chiave.length > 0) {
+        summary.informazioni_chiave.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'informazione_chiave',
+                confidence: 100,
+                source: 'ai_summary'
+            });
+        });
+    }
+
+    // Add relevant numbers
+    if (summary.numeri_rilevanti && summary.numeri_rilevanti.length > 0) {
+        summary.numeri_rilevanti.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'numero_rilevante',
+                confidence: 100,
+                source: 'ai_summary'
+            });
+        });
+    }
+
+    // Add important dates
+    if (summary.date_importanti && summary.date_importanti.length > 0) {
+        summary.date_importanti.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'data_importante',
+                confidence: 100,
+                source: 'ai_summary'
+            });
+        });
+    }
+
+    // Add references
+    if (summary.riferimenti && summary.riferimenti.length > 0) {
+        summary.riferimenti.forEach(item => {
+            items.push({
+                id: id++,
+                text: item,
+                type: 'riferimento',
+                confidence: 100,
+                source: 'ai_summary'
+            });
+        });
+    }
+
+    // Add conclusions
+    if (summary.conclusioni) {
+        items.push({
+            id: id++,
+            text: summary.conclusioni,
+            type: 'conclusioni',
+            confidence: 100,
+            source: 'ai_summary'
+        });
+    }
+
+    return items;
+}
+
+// ============================================================================
+// TEMPLATE-BASED EXCEL/CSV GENERATION
+// ============================================================================
+
+let currentTemplate = null;
+
+// Add event listeners for template functionality in DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    const templateInput = document.getElementById('templateInput');
+    if (templateInput) {
+        templateInput.addEventListener('change', handleTemplateSelect);
+    }
+
+    // Load saved templates on page load
+    loadTemplatesList();
+
+    // Load saved dimension prompts into template section dropdown
+    loadDimensionPromptsForTemplate();
+
+    // Load saved extraction method preferences
+    loadExtractionMethodPreferences();
+
+    // Save extraction method preferences on change
+    ['methodPdfplumber', 'methodOCR', 'methodAIAnalysis', 'methodAISummary', 'methodAIVision'].forEach(methodId => {
+        const checkbox = document.getElementById(methodId);
+        if (checkbox) {
+            checkbox.addEventListener('change', saveExtractionMethodPreferences);
+        }
+    });
+});
+
+function handleTemplateSelect(event) {
+    const file = event.target.files[0];
+    const templateStatus = document.getElementById('templateStatus');
+    const generateBtn = document.getElementById('generateTemplateBtn');
+    const saveBtn = document.getElementById('saveTemplateBtn');
+
+    if (!file) {
+        templateStatus.textContent = '';
+        generateBtn.disabled = true;
+        saveBtn.disabled = true;
+        currentTemplate = null;
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.txt')) {
+        templateStatus.textContent = '⚠️ Il file deve essere .txt';
+        generateBtn.disabled = true;
+        saveBtn.disabled = true;
+        currentTemplate = null;
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentTemplate = e.target.result;
+        templateStatus.textContent = `✓ Template caricato: ${file.name}`;
+        generateBtn.disabled = false;
+        saveBtn.disabled = false;
+
+        // Auto-fill template name if empty
+        const templateNameInput = document.getElementById('templateNameInput');
+        if (!templateNameInput.value) {
+            templateNameInput.value = file.name.replace('.txt', '');
+        }
+    };
+    reader.onerror = function() {
+        templateStatus.textContent = '❌ Errore lettura file';
+        generateBtn.disabled = true;
+        saveBtn.disabled = true;
+        currentTemplate = null;
+    };
+    reader.readAsText(file);
+}
+
+async function generateFromTemplate() {
+    if (!currentTemplate) {
+        alert('Carica prima un file template .txt');
+        return;
+    }
+
+    const templateStatus = document.getElementById('templateStatus');
+    const generateBtn = document.getElementById('generateTemplateBtn');
+    const progressContainer = document.getElementById('progressContainer');
+
+    generateBtn.disabled = true;
+    templateStatus.textContent = '';
+    progressContainer.style.display = 'block';
+
+    try {
+        // Step 1: Analyze entire PDF with all methods
+        await analyzeEntirePDF();
+
+        // Step 2: Check if dimension extraction is requested
+        const dimensionPromptSelect = document.getElementById('templateDimensionPromptSelect');
+        const dimensionPromptId = dimensionPromptSelect ? dimensionPromptSelect.value : '';
+
+        let dimensionsData = null;
+        if (dimensionPromptId) {
+            // Extract dimensions using the selected prompt
+            updateProgress(75, 'Estrazione dimensioni', 'Analisi dimensioni con AI...');
+            dimensionsData = await extractDimensionsForTemplate(dimensionPromptId);
+        }
+
+        // Step 3: Collect all extracted data
+        updateProgress(80, 'Raccolta dati completa', 'Preparazione generazione file...');
+        const allData = await collectAllExtractedData();
+
+        if (!allData) {
+            templateStatus.textContent = '❌ Nessun dato disponibile';
+            progressContainer.style.display = 'none';
+            generateBtn.disabled = false;
+            return;
+        }
+
+        // Add dimensions data if available
+        if (dimensionsData) {
+            allData.dimensions = dimensionsData;
+        }
+
+        // Step 4: Generate file with Opus
+        updateProgress(90, 'Elaborazione con Claude Opus', 'Generazione file Excel...');
+
+        const response = await fetch('/generate_from_template', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                template: currentTemplate,
+                data: allData
+            })
+        });
+
+        if (response.ok) {
+            updateProgress(100, 'Completato!', 'Download in corso...');
+
+            // Download the generated file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `template_output_${Date.now()}.xlsx`;
+            if (contentDisposition) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                if (matches != null && matches[1]) {
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            templateStatus.textContent = `✓ File generato: ${filename}`;
+            status.textContent = `Download completato: ${filename}`;
+
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+            }, 2000);
+        } else {
+            const errorData = await response.json();
+            templateStatus.textContent = '❌ Errore generazione';
+            alert('Errore: ' + (errorData.error || 'Errore sconosciuto'));
+            progressContainer.style.display = 'none';
+        }
+    } catch (error) {
+        templateStatus.textContent = '❌ Errore: ' + error.message;
+        alert('Errore: ' + error.message);
+        progressContainer.style.display = 'none';
+    } finally {
+        generateBtn.disabled = false;
+    }
+}
+
+async function collectAllExtractedData() {
+    const data = {
+        ocr_numbers: [],
+        pdfplumber_text: '',
+        ai_analysis: null,
+        ai_summary: null
+    };
+
+    try {
+        // Get OCR results from ocr_results.json (limit to avoid token overflow)
+        const ocrResponse = await fetch('/get_extraction_results');
+        if (ocrResponse.ok) {
+            const ocrData = await ocrResponse.json();
+            if (ocrData.success && ocrData.numbers) {
+                // Limit OCR numbers to avoid token overflow
+                // Group by unique text values to reduce redundancy
+                const uniqueNumbers = {};
+                ocrData.numbers.forEach(num => {
+                    const key = num.text;
+                    if (!uniqueNumbers[key]) {
+                        uniqueNumbers[key] = num;
+                    }
+                });
+                // Limit to 500 unique numbers maximum
+                data.ocr_numbers = Object.values(uniqueNumbers).slice(0, 500);
+            }
+        }
+
+        // Get PDF text from pdfplumber (limit to avoid token overflow)
+        const textResponse = await fetch('/get_pdf_text');
+        if (textResponse.ok) {
+            const textData = await textResponse.json();
+            if (textData.success && textData.text) {
+                // Limit text to approximately 100,000 characters (~25,000 tokens)
+                const maxChars = 100000;
+                if (textData.text.length > maxChars) {
+                    data.pdfplumber_text = textData.text.substring(0, maxChars) + '\n\n[... testo troncato per limite token ...]';
+                } else {
+                    data.pdfplumber_text = textData.text;
+                }
+            }
+        }
+
+        // Get AI analysis and summary if available (these are already concise)
+        const aiResponse = await fetch('/get_ai_results');
+        if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            if (aiData.success) {
+                data.ai_analysis = aiData.analysis;
+                data.ai_summary = aiData.summary;
+            }
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error collecting data:', error);
+        return null;
+    }
+}
+
+// ============================================================================
+// TEMPLATE LIBRARY MANAGEMENT
+// ============================================================================
+
+async function loadTemplatesList() {
+    try {
+        const response = await fetch('/get_templates');
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.getElementById('savedTemplatesSelect');
+
+            // Clear existing options except first
+            select.innerHTML = '<option value="">-- Seleziona un template --</option>';
+
+            // Add templates
+            if (data.templates && data.templates.length > 0) {
+                data.templates.forEach(template => {
+                    const option = document.createElement('option');
+                    option.value = template.id;
+                    option.textContent = template.name;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+async function saveCurrentTemplate() {
+    const templateName = document.getElementById('templateNameInput').value.trim();
+    const templateStatus = document.getElementById('templateStatus');
+
+    if (!templateName) {
+        alert('Inserisci un nome per il template');
+        return;
+    }
+
+    if (!currentTemplate) {
+        alert('Carica prima un template');
+        return;
+    }
+
+    try {
+        templateStatus.textContent = '⏳ Salvataggio in corso...';
+
+        const response = await fetch('/save_template', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: templateName,
+                content: currentTemplate
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            templateStatus.textContent = `✓ Template "${templateName}" salvato`;
+
+            // Reload templates list
+            await loadTemplatesList();
+
+            // Clear file input
+            document.getElementById('templateInput').value = '';
+        } else {
+            templateStatus.textContent = '❌ ' + (data.error || 'Errore salvataggio');
+        }
+    } catch (error) {
+        templateStatus.textContent = '❌ Errore connessione';
+        console.error('Error saving template:', error);
+    }
+}
+
+async function loadSavedTemplate() {
+    const select = document.getElementById('savedTemplatesSelect');
+    const templateId = select.value;
+    const templateStatus = document.getElementById('templateStatus');
+
+    if (!templateId) {
+        alert('Seleziona un template dalla lista');
+        return;
+    }
+
+    try {
+        templateStatus.textContent = '⏳ Caricamento...';
+
+        const response = await fetch(`/get_template/${templateId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            currentTemplate = data.template.content;
+            document.getElementById('templateNameInput').value = data.template.name;
+            document.getElementById('generateTemplateBtn').disabled = false;
+            document.getElementById('saveTemplateBtn').disabled = false;
+            templateStatus.textContent = `✓ Template "${data.template.name}" caricato`;
+        } else {
+            templateStatus.textContent = '❌ ' + (data.error || 'Errore caricamento');
+        }
+    } catch (error) {
+        templateStatus.textContent = '❌ Errore connessione';
+        console.error('Error loading template:', error);
+    }
+}
+
+async function deleteSavedTemplate() {
+    const select = document.getElementById('savedTemplatesSelect');
+    const templateId = select.value;
+    const templateStatus = document.getElementById('templateStatus');
+
+    if (!templateId) {
+        alert('Seleziona un template da eliminare');
+        return;
+    }
+
+    const templateName = select.options[select.selectedIndex].text;
+
+    if (!confirm(`Vuoi eliminare il template "${templateName}"?`)) {
+        return;
+    }
+
+    try {
+        templateStatus.textContent = '⏳ Eliminazione...';
+
+        const response = await fetch(`/delete_template/${templateId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            templateStatus.textContent = `✓ Template "${templateName}" eliminato`;
+
+            // Reload templates list
+            await loadTemplatesList();
+
+            // Clear current template if it was the deleted one
+            if (document.getElementById('templateNameInput').value === templateName) {
+                currentTemplate = null;
+                document.getElementById('templateNameInput').value = '';
+                document.getElementById('generateTemplateBtn').disabled = true;
+                document.getElementById('saveTemplateBtn').disabled = true;
+            }
+        } else {
+            templateStatus.textContent = '❌ ' + (data.error || 'Errore eliminazione');
+        }
+    } catch (error) {
+        templateStatus.textContent = '❌ Errore connessione';
+        console.error('Error deleting template:', error);
+    }
+}
+
+async function downloadTemplate() {
+    const select = document.getElementById('savedTemplatesSelect');
+    const templateId = select.value;
+    const templateStatus = document.getElementById('templateStatus');
+
+    if (!templateId) {
+        alert('Seleziona un template da scaricare');
+        return;
+    }
+
+    try {
+        templateStatus.textContent = '⏳ Download...';
+
+        const response = await fetch(`/get_template/${templateId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            const template = data.template;
+            const blob = new Blob([template.content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${template.name}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            templateStatus.textContent = `✓ Download "${template.name}.txt" completato`;
+        } else {
+            templateStatus.textContent = '❌ ' + (data.error || 'Errore download');
+        }
+    } catch (error) {
+        templateStatus.textContent = '❌ Errore connessione';
+        console.error('Error downloading template:', error);
+    }
+}
+
+// ============================================================================
+// COMPLETE PDF ANALYSIS WITH PROGRESS TRACKING
+// ============================================================================
+
+let progressStartTime = null;
+let totalSteps = 0;
+let completedSteps = 0;
+
+function updateProgress(percentage, mainText, detailText = '') {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const progressTime = document.getElementById('progressTime');
+    const progressSteps = document.getElementById('progressSteps');
+
+    if (progressBar) progressBar.style.width = percentage + '%';
+    if (progressText) progressText.textContent = mainText;
+    if (progressSteps) progressSteps.textContent = detailText;
+
+    // Calculate estimated time remaining
+    if (progressStartTime && percentage > 0 && percentage < 100) {
+        const elapsed = (Date.now() - progressStartTime) / 1000; // seconds
+        const estimated = (elapsed / percentage) * (100 - percentage);
+        const minutes = Math.floor(estimated / 60);
+        const seconds = Math.floor(estimated % 60);
+
+        if (minutes > 0) {
+            progressTime.textContent = `Tempo stimato: ${minutes}m ${seconds}s`;
+        } else {
+            progressTime.textContent = `Tempo stimato: ${seconds}s`;
+        }
+    } else if (percentage >= 100) {
+        const elapsed = (Date.now() - progressStartTime) / 1000;
+        progressTime.textContent = `Completato in ${Math.floor(elapsed)}s`;
+    }
+}
+
+async function analyzeEntirePDF() {
+    progressStartTime = Date.now();
+
+    // Get selected extraction methods
+    const usePdfplumber = document.getElementById('methodPdfplumber').checked;
+    const useOCR = document.getElementById('methodOCR').checked;
+    const useAIAnalysis = document.getElementById('methodAIAnalysis').checked;
+    const useAISummary = document.getElementById('methodAISummary').checked;
+    const useAIVision = document.getElementById('methodAIVision').checked;
+
+    // Validate at least one method is selected
+    if (!usePdfplumber && !useOCR && !useAIAnalysis && !useAISummary && !useAIVision) {
+        throw new Error('Seleziona almeno un metodo di estrazione');
+    }
+
+    try {
+        // Get PDF info
+        updateProgress(5, 'Caricamento PDF', 'Verifica documento...');
+        const infoResponse = await fetch('/get_pdf_info');
+        if (!infoResponse.ok) {
+            throw new Error('PDF non caricato. Carica prima un PDF.');
+        }
+        const pdfInfo = await infoResponse.json();
+        const pageCount = pdfInfo.page_count;
+
+        // Calculate total steps based on selected methods
+        totalSteps = 0;
+        if (usePdfplumber) totalSteps += pageCount;
+        if (useOCR) totalSteps += pageCount;
+        if (useAIAnalysis) totalSteps++;
+        if (useAISummary) totalSteps++;
+        if (useAIVision) totalSteps++;
+
+        completedSteps = 0;
+        let currentProgress = 10;
+
+        // Step 1: Extract with pdfplumber for all pages (if selected)
+        if (usePdfplumber) {
+            updateProgress(currentProgress, 'Estrazione pdfplumber', `Elaborazione tutte le ${pageCount} pagine...`);
+            await fetch('/extract_all_pages_pdfplumber', { method: 'POST' });
+            completedSteps += pageCount;
+            currentProgress = 10 + (completedSteps / totalSteps) * 60;
+            updateProgress(currentProgress, 'PDFplumber completato', `${pageCount} pagine elaborate`);
+        }
+
+        // Step 2: Extract with OCR for all pages (if selected)
+        if (useOCR) {
+            updateProgress(currentProgress, 'Estrazione OCR avanzata', `Analisi ${pageCount} pagine con OCR...`);
+            for (let page = 0; page < pageCount; page++) {
+                await fetch('/extract_numbers_advanced', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({page_num: page, min_conf: 60})
+                });
+                completedSteps++;
+                currentProgress = 10 + (completedSteps / totalSteps) * 60;
+                updateProgress(currentProgress, 'Estrazione OCR avanzata', `Pagina ${page + 1}/${pageCount} completata`);
+            }
+            updateProgress(currentProgress, 'OCR completato', `${pageCount} pagine analizzate`);
+        }
+
+        // Step 3: AI Analysis (if selected)
+        if (useAIAnalysis) {
+            updateProgress(currentProgress, 'Analisi AI', 'Claude Opus sta analizzando i dati...');
+            await fetch('/opus/analyze', { method: 'POST' });
+            completedSteps++;
+            currentProgress = 10 + (completedSteps / totalSteps) * 60;
+        }
+
+        // Step 4: AI Summary (if selected)
+        if (useAISummary) {
+            updateProgress(currentProgress, 'Riepilogo AI', 'Creazione riepilogo documento...');
+            await fetch('/opus/summarize', { method: 'POST' });
+            completedSteps++;
+            currentProgress = 10 + (completedSteps / totalSteps) * 60;
+        }
+
+        // Step 5: Vision Analysis (if selected)
+        if (useAIVision && currentPageImage) {
+            updateProgress(currentProgress, 'Analisi visione', 'Analisi visuale della prima pagina...');
+            await fetch('/opus/vision', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({image: currentPageImage})
+            });
+            completedSteps++;
+            currentProgress = 10 + (completedSteps / totalSteps) * 60;
+        }
+
+        updateProgress(75, 'Analisi completa', `${getSelectedMethodsText()} completati`);
+
+    } catch (error) {
+        console.error('Error in complete PDF analysis:', error);
+        throw error;
+    }
+}
+
+function getSelectedMethodsText() {
+    const methods = [];
+    if (document.getElementById('methodPdfplumber').checked) methods.push('PDFplumber');
+    if (document.getElementById('methodOCR').checked) methods.push('OCR');
+    if (document.getElementById('methodAIAnalysis').checked) methods.push('AI Analysis');
+    if (document.getElementById('methodAISummary').checked) methods.push('AI Summary');
+    if (document.getElementById('methodAIVision').checked) methods.push('AI Vision');
+    return methods.join(', ');
+}
+
+// ============================================================================
+// EXTRACTION METHOD PREFERENCES
+// ============================================================================
+
+function saveExtractionMethodPreferences() {
+    const preferences = {
+        pdfplumber: document.getElementById('methodPdfplumber').checked,
+        ocr: document.getElementById('methodOCR').checked,
+        aiAnalysis: document.getElementById('methodAIAnalysis').checked,
+        aiSummary: document.getElementById('methodAISummary').checked,
+        aiVision: document.getElementById('methodAIVision').checked
+    };
+    localStorage.setItem('extractionMethodPreferences', JSON.stringify(preferences));
+}
+
+function loadExtractionMethodPreferences() {
+    try {
+        const saved = localStorage.getItem('extractionMethodPreferences');
+        if (saved) {
+            const preferences = JSON.parse(saved);
+            document.getElementById('methodPdfplumber').checked = preferences.pdfplumber !== false;
+            document.getElementById('methodOCR').checked = preferences.ocr !== false;
+            document.getElementById('methodAIAnalysis').checked = preferences.aiAnalysis !== false;
+            document.getElementById('methodAISummary').checked = preferences.aiSummary !== false;
+            document.getElementById('methodAIVision').checked = preferences.aiVision !== false;
+        }
+    } catch (error) {
+        console.error('Error loading extraction method preferences:', error);
+    }
+}
+
+// ============================================================================
+// DIMENSION PROMPTS FOR TEMPLATE SECTION
+// ============================================================================
+
+async function loadDimensionPromptsForTemplate() {
+    try {
+        const response = await fetch('/get_dimension_prompts');
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.getElementById('templateDimensionPromptSelect');
+
+            if (!select) return;
+
+            // Clear existing options except first
+            select.innerHTML = '<option value="">-- Nessuna estrazione dimensioni --</option>';
+
+            // Add prompts
+            if (data.prompts && data.prompts.length > 0) {
+                data.prompts.forEach(prompt => {
+                    const option = document.createElement('option');
+                    option.value = prompt.id;
+                    option.textContent = prompt.name;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error loading dimension prompts for template:', error);
+    }
+}
+
+async function extractDimensionsForTemplate(dimensionPromptId) {
+    try {
+        // First, get the dimension prompt content
+        const promptResponse = await fetch(`/get_dimension_prompt/${dimensionPromptId}`);
+        const promptData = await promptResponse.json();
+
+        if (!promptData.success || !promptData.prompt) {
+            console.error('Failed to load dimension prompt');
+            return null;
+        }
+
+        const dimensionPrompt = promptData.prompt.content;
+
+        // Check if we have a current page image
+        if (!currentPageImage) {
+            console.error('No page image available for dimension extraction');
+            return null;
+        }
+
+        // Extract dimensions using the prompt
+        const extractResponse = await fetch('/extract_dimensions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                prompt: dimensionPrompt,
+                image: currentPageImage
+            })
+        });
+
+        const extractData = await extractResponse.json();
+
+        if (extractData.success && extractData.dimensions) {
+            return extractData.dimensions;
+        } else {
+            console.error('Failed to extract dimensions:', extractData.error);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error in extractDimensionsForTemplate:', error);
+        return null;
+    }
+}
+
+

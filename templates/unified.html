@@ -586,7 +586,7 @@
                 <h1>PDF Analyzer Unified - Estrazione Avanzata</h1>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <span class="pdf-type-badge" id="pdfTypeBadge">PDF Type</span>
-                    <span class="version-badge">v0.15 + AI</span>
+                    <span class="version-badge">v0.16 + AI</span>
                 </div>
             </div>
             <div class="upload-section">
@@ -751,6 +751,144 @@
                     </div>
                 </div>
 
+                <!-- Template Excel/CSV Section -->
+                <div id="templateSection" style="margin-bottom: 15px; padding: 12px; background-color: #f0f8ff; border: 2px solid #3498db; border-radius: 6px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #2c3e50;">📋 Template Excel/CSV</h3>
+
+                    <!-- Template Library -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Template Salvati:</label>
+                        <div style="display: flex; gap: 5px;">
+                            <select id="savedTemplatesSelect" style="flex: 1; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                                <option value="">-- Seleziona un template --</option>
+                            </select>
+                            <button class="btn" onclick="loadSavedTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #27ae60;">📂</button>
+                            <button class="btn" onclick="downloadTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #3498db;">💾</button>
+                            <button class="btn" onclick="deleteSavedTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #e74c3c;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- Import from file -->
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure importa da file:</label>
+                        <input type="file" id="templateInput" accept=".txt" style="display: block; width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    </div>
+
+                    <!-- Template name for saving -->
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Nome template:</label>
+                        <input type="text" id="templateNameInput" placeholder="Es: Tabella Misure" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    </div>
+
+                    <!-- Extraction Methods Selection -->
+                    <div style="margin-bottom: 10px; padding: 8px; background-color: #fff; border: 1px solid #bdc3c7; border-radius: 4px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 6px; font-weight: bold;">Metodi di estrazione:</label>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                                <input type="checkbox" id="methodPdfplumber" checked style="cursor: pointer;" />
+                                <span>📄 PDFPlumber (testo nativo)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                                <input type="checkbox" id="methodOCR" checked style="cursor: pointer;" />
+                                <span>🔍 OCR Avanzato (0° + 90°)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                                <input type="checkbox" id="methodAIAnalysis" checked style="cursor: pointer;" />
+                                <span>🤖 AI Analysis</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                                <input type="checkbox" id="methodAISummary" checked style="cursor: pointer;" />
+                                <span>📝 AI Summary</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer;">
+                                <input type="checkbox" id="methodAIVision" checked style="cursor: pointer;" />
+                                <span>👁️ AI Vision</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Optional Dimension Extraction -->
+                    <div style="margin-bottom: 10px; padding: 8px; background-color: #fff; border: 1px solid #ff9800; border-radius: 4px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 6px; font-weight: bold;">📐 Estrazione Dimensioni (opzionale):</label>
+                        <select id="templateDimensionPromptSelect" style="width: 100%; padding: 6px; font-size: 11px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                            <option value="">-- Nessuna estrazione dimensioni --</option>
+                        </select>
+                        <div style="font-size: 10px; color: #7f8c8d; margin-top: 4px;">Se selezioni un prompt, le dimensioni verranno estratte e incluse nei dati per il template</div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
+                        <button class="btn" id="saveTemplateBtn" onclick="saveCurrentTemplate()" style="padding: 8px; font-size: 12px; background-color: #3498db;" disabled>
+                            💾 Salva
+                        </button>
+                        <button class="btn" id="generateTemplateBtn" onclick="generateFromTemplate()" style="padding: 8px; font-size: 12px; background-color: #e67e22;" disabled>
+                            🚀 Genera
+                        </button>
+                    </div>
+
+                    <div id="templateStatus" style="font-size: 11px; color: #7f8c8d; text-align: center;"></div>
+
+                    <!-- Progress Indicator -->
+                    <div id="progressContainer" style="display: none; margin-top: 10px; padding: 10px; background-color: #fff; border: 1px solid #3498db; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <span id="progressText" style="font-size: 12px; font-weight: bold; color: #2c3e50;">Inizializzazione...</span>
+                            <span id="progressTime" style="font-size: 11px; color: #7f8c8d;">Tempo stimato: --</span>
+                        </div>
+                        <div style="width: 100%; height: 20px; background-color: #ecf0f1; border-radius: 10px; overflow: hidden;">
+                            <div id="progressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div id="progressSteps" style="margin-top: 5px; font-size: 10px; color: #7f8c8d;"></div>
+                    </div>
+                </div>
+
+                <!-- Dimension Extraction Prompt Section -->
+                <div id="dimensionSection" style="margin-bottom: 15px; padding: 12px; background-color: #fff3e0; border: 2px solid #ff9800; border-radius: 6px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #2c3e50;">📐 Estrazione Dimensioni da Disegno</h3>
+
+                    <!-- Dimension Prompt Library -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Prompt Salvati:</label>
+                        <div style="display: flex; gap: 5px;">
+                            <select id="savedDimensionPromptsSelect" style="flex: 1; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                                <option value="">-- Seleziona un prompt --</option>
+                            </select>
+                            <button class="btn" onclick="loadSavedDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #27ae60;">📂</button>
+                            <button class="btn" onclick="downloadDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #3498db;">💾</button>
+                            <button class="btn" onclick="deleteSavedDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #e74c3c;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- Import from file -->
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure importa da file:</label>
+                        <input type="file" id="dimensionPromptFileInput" accept=".txt" style="display: block; width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    </div>
+
+                    <!-- Or write directly -->
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure scrivi il prompt:</label>
+                        <textarea id="dimensionPromptInput" rows="4" placeholder="Es: Estrai tutte le dimensioni principali dal disegno tecnico: lunghezza, larghezza, altezza, diametro, raggio..." style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px; resize: vertical;"></textarea>
+                    </div>
+
+                    <!-- Prompt name for saving -->
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Nome prompt:</label>
+                        <input type="text" id="dimensionPromptNameInput" placeholder="Es: Dimensioni Meccaniche" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
+                        <button class="btn" id="saveDimensionPromptBtn" onclick="saveCurrentDimensionPrompt()" style="padding: 8px; font-size: 12px; background-color: #ff9800;" disabled>
+                            💾 Salva
+                        </button>
+                        <button class="btn" id="extractDimensionsBtn" onclick="extractDimensions()" style="padding: 8px; font-size: 12px; background-color: #4caf50;" disabled>
+                            📐 Estrai
+                        </button>
+                    </div>
+
+                    <div id="dimensionStatus" style="font-size: 11px; color: #7f8c8d; text-align: center;"></div>
+                </div>
+
                 <div class="text-list" id="textList">
                     <p class="placeholder">I risultati appariranno qui</p>
                 </div>
@@ -759,5 +897,6 @@
     </div>
 
     <script src="{{ url_for('static', filename='unified.js') }}"></script>
+    <script src="{{ url_for('static', filename='dimension_prompts.js') }}"></script>
 </body>
 </html>

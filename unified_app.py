@@ -27,6 +27,7 @@ from dotenv import load_dotenv
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 import uuid
+from ai_providers import AIProviderManager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -48,18 +49,24 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['TEMPLATES_FOLDER'], exist_ok=True)
 os.makedirs(app.config['DIMENSION_PROMPTS_FOLDER'], exist_ok=True)
 
-# Configure Anthropic API
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+# Configure AI Provider Manager
 DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
+ai_manager = AIProviderManager()
+
+# Keep backward compatibility with legacy code
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 anthropic_client = None
+if ANTHROPIC_API_KEY:
+    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 if DEMO_MODE:
     print("[WARNING] DEMO MODE ENABLED - Using simulated AI responses")
-elif ANTHROPIC_API_KEY:
-    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
-    print("Claude Opus integration enabled")
+elif ai_manager.is_any_available():
+    available = ai_manager.get_available_providers()
+    print(f"AI Providers initialized: {', '.join(available.values())}")
+    print(f"Current provider: {ai_manager.get_current_provider_name()}")
 else:
-    print("Warning: ANTHROPIC_API_KEY not set. Claude Opus features will be disabled.")
+    print("Warning: No AI providers configured. Add API keys to .env file.")
 
 
 def allowed_file(filename):
@@ -1963,6 +1970,68 @@ def opus_status():
     })
 
 
+# ============================================================================
+# AI PROVIDER MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.route('/ai/providers')
+def get_ai_providers():
+    """Get list of available AI providers"""
+    available = ai_manager.get_available_providers()
+    current = ai_manager.current_provider
+    return jsonify({
+        'providers': available,
+        'current': current,
+        'current_name': ai_manager.get_current_provider_name()
+    })
+
+
+@app.route('/ai/provider/set', methods=['POST'])
+def set_ai_provider():
+    """Set the current AI provider"""
+    data = request.json
+    provider_key = data.get('provider')
+
+    if not provider_key:
+        return jsonify({'error': 'Provider key required'}), 400
+
+    success = ai_manager.set_provider(provider_key)
+    if success:
+        return jsonify({
+            'success': True,
+            'provider': provider_key,
+            'provider_name': ai_manager.get_current_provider_name()
+        })
+    else:
+        return jsonify({'error': 'Provider not available'}), 404
+
+
+@app.route('/ai/status')
+def ai_status():
+    """Get current AI provider status"""
+    if DEMO_MODE:
+        return jsonify({
+            'enabled': True,
+            'provider': 'demo',
+            'message': '⚠️ DEMO MODE - Risposte simulate'
+        })
+
+    if ai_manager.is_any_available():
+        return jsonify({
+            'enabled': True,
+            'provider': ai_manager.current_provider,
+            'provider_name': ai_manager.get_current_provider_name(),
+            'message': f'{ai_manager.get_current_provider_name()} attivo',
+            'available_providers': ai_manager.get_available_providers()
+        })
+    else:
+        return jsonify({
+            'enabled': False,
+            'provider': None,
+            'message': 'Nessun provider AI configurato. Aggiungi API keys al file .env'
+        })
+
+
 @app.route('/download_results/<format>', methods=['POST'])
 def download_results(format='txt'):
     """Download extraction results in various formats (txt, csv, json)"""
@@ -2725,6 +2794,87 @@ def extract_dimensions():
         import traceback
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni: {error_details}")
+        return jsonify({'error': f'Error calling Claude Opus: {str(e)}'}), 500
+
+
+@app.route('/extract_dimensions_with_context', methods=['POST'])
+def extract_dimensions_with_context():
+    """Extract dimensions from PDF page using Claude Opus Vision with custom prompt and context data"""
+    try:
+        if not anthropic_client:
+            return jsonify({'error': 'Claude Opus non configurato. Aggiungi ANTHROPIC_API_KEY al file .env'}), 400
+
+        data = request.json
+        prompt = data.get('prompt')
+        image_base64 = data.get('image')
+        context = data.get('context', {})
+
+        if not prompt or not image_base64:
+            return jsonify({'error': 'Prompt e immagine richiesti'}), 400
+
+        # Remove data URL prefix if present
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+
+        # Build enhanced prompt with context
+        enhanced_prompt = prompt + "\n\n"
+
+        # Add PDF text context if available
+        if context.get('pdfplumber_text'):
+            enhanced_prompt += "CONTESTO - Testo estratto dal PDF:\n"
+            enhanced_prompt += context['pdfplumber_text'][:10000]  # Limit to 10k chars
+            enhanced_prompt += "\n\n"
+
+        # Add AI analysis context if available
+        if context.get('ai_analysis'):
+            enhanced_prompt += "CONTESTO - Analisi AI del documento:\n"
+            enhanced_prompt += json.dumps(context['ai_analysis'], ensure_ascii=False, indent=2)[:5000]
+            enhanced_prompt += "\n\n"
+
+        # Add AI summary context if available
+        if context.get('ai_summary'):
+            enhanced_prompt += "CONTESTO - Riepilogo AI del documento:\n"
+            enhanced_prompt += json.dumps(context['ai_summary'], ensure_ascii=False, indent=2)[:5000]
+            enhanced_prompt += "\n\n"
+
+        enhanced_prompt += "Usa il contesto sopra insieme all'immagine per estrarre le dimensioni richieste con maggiore accuratezza."
+
+        # Call Claude Opus Vision API with enhanced prompt
+        message = anthropic_client.messages.create(
+            model="claude-opus-4-20250514",
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": enhanced_prompt
+                        }
+                    ]
+                }
+            ]
+        )
+
+        dimensions_text = message.content[0].text
+
+        return jsonify({
+            'success': True,
+            'dimensions': dimensions_text
+        })
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Errore estrazione dimensioni con contesto: {error_details}")
         return jsonify({'error': f'Error calling Claude Opus: {str(e)}'}), 500
 
 

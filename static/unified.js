@@ -1803,13 +1803,52 @@ async function extractDimensionsForTemplate(dimensionPromptId) {
             return null;
         }
 
-        // Extract dimensions using the prompt
-        const extractResponse = await fetch('/extract_dimensions', {
+        // Collect additional context data from PDF
+        const contextData = {
+            pdfplumber_text: '',
+            ai_analysis: null,
+            ai_summary: null
+        };
+
+        // Get PDF text from pdfplumber
+        try {
+            const textResponse = await fetch('/get_pdf_text');
+            if (textResponse.ok) {
+                const textData = await textResponse.json();
+                if (textData.success && textData.text) {
+                    // Limit text to 50,000 characters for context
+                    const maxChars = 50000;
+                    contextData.pdfplumber_text = textData.text.length > maxChars
+                        ? textData.text.substring(0, maxChars) + '\n\n[... testo troncato ...]'
+                        : textData.text;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not fetch PDF text:', error);
+        }
+
+        // Get AI analysis and summary if available
+        try {
+            const aiResponse = await fetch('/get_ai_results');
+            if (aiResponse.ok) {
+                const aiData = await aiResponse.json();
+                if (aiData.success) {
+                    contextData.ai_analysis = aiData.analysis;
+                    contextData.ai_summary = aiData.summary;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not fetch AI results:', error);
+        }
+
+        // Extract dimensions using the prompt with context data
+        const extractResponse = await fetch('/extract_dimensions_with_context', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 prompt: dimensionPrompt,
-                image: currentPageImage
+                image: currentPageImage,
+                context: contextData
             })
         });
 

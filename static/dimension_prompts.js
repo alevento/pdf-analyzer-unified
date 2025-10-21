@@ -3,6 +3,7 @@
 // ============================================================================
 
 let currentDimensionPrompt = null;
+let currentExtractedDimensions = null; // Store extracted dimensions for download
 
 // Add event listeners for dimension prompt functionality in DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -78,12 +79,21 @@ async function extractDimensions() {
         if (data.error) {
             textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
             dimensionStatus.textContent = '❌ Errore estrazione';
+            currentExtractedDimensions = null;
         } else if (data.success && data.dimensions) {
+            // Store extracted dimensions for download
+            currentExtractedDimensions = data.dimensions;
+
             textList.innerHTML = `
                 <div class="ai-result">
                     <h3>📐 Dimensioni Estratte</h3>
                     <div class="ai-result-item">
                         <pre>${escapeHtml(data.dimensions)}</pre>
+                    </div>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button class="btn" onclick="downloadExtractedDimensions()" style="padding: 8px 16px; font-size: 12px; background-color: #27ae60;">
+                            💾 Scarica Dimensioni (.txt)
+                        </button>
                     </div>
                 </div>
             `;
@@ -332,5 +342,60 @@ async function downloadDimensionPrompt() {
     } catch (error) {
         dimensionStatus.textContent = '❌ Errore connessione';
         console.error('Error downloading dimension prompt:', error);
+    }
+}
+
+// ============================================================================
+// DOWNLOAD EXTRACTED DIMENSIONS
+// ============================================================================
+
+function downloadExtractedDimensions() {
+    if (!currentExtractedDimensions) {
+        alert('Nessuna dimensione da scaricare. Esegui prima l\'estrazione.');
+        return;
+    }
+
+    try {
+        // Create file content with timestamp and metadata
+        const timestamp = new Date().toLocaleString('it-IT');
+        const promptName = document.getElementById('dimensionPromptNameInput').value || 'dimensioni';
+
+        let fileContent = `=== DIMENSIONI ESTRATTE ===\n`;
+        fileContent += `Data: ${timestamp}\n`;
+        fileContent += `Prompt utilizzato: ${promptName}\n`;
+        fileContent += `\n${'='.repeat(60)}\n\n`;
+        fileContent += currentExtractedDimensions;
+        fileContent += `\n\n${'='.repeat(60)}\n`;
+        fileContent += `\nEstrazione effettuata con Claude Opus Vision API\n`;
+
+        // Create and download the file
+        const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // Generate filename with timestamp
+        const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `dimensioni_${promptName.replace(/\s+/g, '_')}_${dateStr}.txt`;
+        a.download = filename;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Update status
+        const dimensionStatus = document.getElementById('dimensionStatus');
+        if (dimensionStatus) {
+            dimensionStatus.textContent = `✓ Download "${filename}" completato`;
+        }
+
+        const status = document.getElementById('status');
+        if (status) {
+            status.textContent = `Download completato: ${filename}`;
+        }
+    } catch (error) {
+        alert('Errore durante il download: ' + error.message);
+        console.error('Error downloading dimensions:', error);
     }
 }

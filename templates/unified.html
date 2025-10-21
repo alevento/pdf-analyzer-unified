@@ -842,51 +842,51 @@
                 </div>
 
                 <!-- Dimension Extraction Prompt Section -->
-                <div id="dimensionSection" style="margin-bottom: 15px; padding: 12px; background-color: #fff3e0; border: 2px solid #ff9800; border-radius: 6px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #2c3e50;">📐 Estrazione Dimensioni da Disegno</h3>
+                <div id="dimensionSection" style="margin-bottom: 15px; padding: 10px; background-color: #fff3e0; border: 2px solid #ff9800; border-radius: 6px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 13px; color: #2c3e50;">📐 Estrazione Dimensioni</h3>
 
                     <!-- Dimension Prompt Library -->
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Prompt Salvati:</label>
-                        <div style="display: flex; gap: 5px;">
-                            <select id="savedDimensionPromptsSelect" style="flex: 1; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;">
-                                <option value="">-- Seleziona un prompt --</option>
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; font-size: 11px; color: #2c3e50; margin-bottom: 3px;">Prompt Salvati:</label>
+                        <div style="display: flex; gap: 4px; align-items: stretch;">
+                            <select id="savedDimensionPromptsSelect" style="flex: 1; min-width: 0; padding: 5px; font-size: 11px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                                <option value="">-- Seleziona --</option>
                             </select>
-                            <button class="btn" onclick="loadSavedDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #27ae60;">📂</button>
-                            <button class="btn" onclick="downloadDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #3498db;">💾</button>
-                            <button class="btn" onclick="deleteSavedDimensionPrompt()" style="padding: 6px 10px; font-size: 12px; background-color: #e74c3c;">🗑️</button>
+                            <button class="btn" onclick="loadSavedDimensionPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #27ae60; flex-shrink: 0;">📂</button>
+                            <button class="btn" onclick="downloadDimensionPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #3498db; flex-shrink: 0;">💾</button>
+                            <button class="btn" onclick="deleteSavedDimensionPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #e74c3c; flex-shrink: 0;">🗑️</button>
                         </div>
                     </div>
 
                     <!-- Import from file -->
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure importa da file:</label>
-                        <input type="file" id="dimensionPromptFileInput" accept=".txt" style="display: block; width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    <div style="margin-bottom: 6px;">
+                        <label style="display: block; font-size: 11px; color: #2c3e50; margin-bottom: 3px;">Importa file:</label>
+                        <input type="file" id="dimensionPromptFileInput" accept=".txt" style="display: block; width: 100%; padding: 5px; font-size: 11px; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;" />
                     </div>
 
                     <!-- Or write directly -->
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure scrivi il prompt:</label>
-                        <textarea id="dimensionPromptInput" rows="4" placeholder="Es: Estrai tutte le dimensioni principali dal disegno tecnico: lunghezza, larghezza, altezza, diametro, raggio..." style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px; resize: vertical;"></textarea>
+                    <div style="margin-bottom: 6px;">
+                        <label style="display: block; font-size: 11px; color: #2c3e50; margin-bottom: 3px;">Scrivi prompt:</label>
+                        <textarea id="dimensionPromptInput" rows="3" placeholder="Es: Estrai dimensioni: lunghezza, larghezza, altezza..." style="width: 100%; padding: 5px; font-size: 11px; border: 1px solid #bdc3c7; border-radius: 4px; resize: vertical; box-sizing: border-box;"></textarea>
                     </div>
 
                     <!-- Prompt name for saving -->
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Nome prompt:</label>
-                        <input type="text" id="dimensionPromptNameInput" placeholder="Es: Dimensioni Meccaniche" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    <div style="margin-bottom: 6px;">
+                        <label style="display: block; font-size: 11px; color: #2c3e50; margin-bottom: 3px;">Nome:</label>
+                        <input type="text" id="dimensionPromptNameInput" placeholder="Es: Dim. Meccaniche" style="width: 100%; padding: 5px; font-size: 11px; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;" />
                     </div>
 
                     <!-- Action buttons -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
-                        <button class="btn" id="saveDimensionPromptBtn" onclick="saveCurrentDimensionPrompt()" style="padding: 8px; font-size: 12px; background-color: #ff9800;" disabled>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px;">
+                        <button class="btn" id="saveDimensionPromptBtn" onclick="saveCurrentDimensionPrompt()" style="padding: 6px; font-size: 11px; background-color: #ff9800;" disabled>
                             💾 Salva
                         </button>
-                        <button class="btn" id="extractDimensionsBtn" onclick="extractDimensions()" style="padding: 8px; font-size: 12px; background-color: #4caf50;" disabled>
+                        <button class="btn" id="extractDimensionsBtn" onclick="extractDimensions()" style="padding: 6px; font-size: 11px; background-color: #4caf50;" disabled>
                             📐 Estrai
                         </button>
                     </div>
 
-                    <div id="dimensionStatus" style="font-size: 11px; color: #7f8c8d; text-align: center;"></div>
+                    <div id="dimensionStatus" style="font-size: 10px; color: #7f8c8d; text-align: center; min-height: 14px;"></div>
                 </div>
 
                 <div class="text-list" id="textList">

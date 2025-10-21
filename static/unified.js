@@ -682,7 +682,6 @@ async function handleVision() {
         return;
     }
 
-    // Hide download buttons for AI vision analysis (text-based)
     document.getElementById('downloadButtons').style.display = 'none';
     currentDisplayData = null;
 
@@ -702,20 +701,29 @@ async function handleVision() {
         if (data.error) {
             textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
             status.textContent = 'Errore visione AI';
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
         } else if (data.success && data.vision_analysis) {
             textList.innerHTML = `
                 <div class="ai-result">
-                    <h3>🔍 Analisi Visione Claude Opus</h3>
+                    <h3>🔍 Analisi Visione ${providerName}</h3>
                     <div class="ai-result-item">
                         <pre>${escapeHtml(data.vision_analysis)}</pre>
                     </div>
                 </div>
             `;
+
+            // Convert vision analysis to downloadable format
+            currentDisplayData = convertVisionToDownloadFormat(data.vision_analysis, providerName);
+            document.getElementById('downloadButtons').style.display = 'block';
+
             status.textContent = 'Analisi visione AI completata';
         }
     } catch (error) {
         textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
         status.textContent = 'Errore connessione AI';
+        document.getElementById('downloadButtons').style.display = 'none';
+        currentDisplayData = null;
     } finally {
         visionBtn.disabled = false;
     }
@@ -728,11 +736,11 @@ async function handleAsk() {
         return;
     }
 
-    // Hide download buttons for AI Q&A (text-based)
     document.getElementById('downloadButtons').style.display = 'none';
     currentDisplayData = null;
 
-    textList.innerHTML = '<div class="ai-loading">💬 Claude Opus sta pensando...</div>';
+    const providerName = document.getElementById('aiProviderSelect').selectedOptions[0]?.text || 'AI';
+    textList.innerHTML = `<div class="ai-loading">💬 ${providerName} sta pensando...</div>`;
     askBtn.disabled = true;
     status.textContent = 'Elaborazione domanda...';
 
@@ -747,6 +755,8 @@ async function handleAsk() {
         if (data.error) {
             textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
             status.textContent = 'Errore Q&A AI';
+            document.getElementById('downloadButtons').style.display = 'none';
+            currentDisplayData = null;
         } else if (data.success && data.answer) {
             textList.innerHTML = `
                 <div class="ai-result">
@@ -754,17 +764,24 @@ async function handleAsk() {
                     <div class="ai-result-item">
                         <strong>${escapeHtml(question)}</strong>
                     </div>
-                    <h3 style="margin-top: 15px;">💡 Risposta Claude Opus</h3>
+                    <h3 style="margin-top: 15px;">💡 Risposta ${providerName}</h3>
                     <div class="ai-result-item">
                         <pre>${escapeHtml(data.answer)}</pre>
                     </div>
                 </div>
             `;
+
+            // Convert Q&A to downloadable format
+            currentDisplayData = convertQAToDownloadFormat(question, data.answer, providerName);
+            document.getElementById('downloadButtons').style.display = 'block';
+
             status.textContent = 'Risposta ricevuta';
         }
     } catch (error) {
         textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
         status.textContent = 'Errore connessione AI';
+        document.getElementById('downloadButtons').style.display = 'none';
+        currentDisplayData = null;
     } finally {
         askBtn.disabled = false;
     }
@@ -1130,6 +1147,47 @@ function convertSummaryToDownloadFormat(summary) {
             source: 'ai_summary'
         });
     }
+
+    return items;
+}
+
+function convertVisionToDownloadFormat(visionText, providerName) {
+    // Convert vision analysis text to downloadable format
+    const items = [];
+
+    items.push({
+        id: 0,
+        text: visionText,
+        type: 'vision_analysis',
+        confidence: 100,
+        source: 'ai_vision',
+        provider: providerName
+    });
+
+    return items;
+}
+
+function convertQAToDownloadFormat(question, answer, providerName) {
+    // Convert Q&A to downloadable format
+    const items = [];
+
+    items.push({
+        id: 0,
+        text: `DOMANDA: ${question}`,
+        type: 'question',
+        confidence: 100,
+        source: 'ai_qa',
+        provider: providerName
+    });
+
+    items.push({
+        id: 1,
+        text: `RISPOSTA: ${answer}`,
+        type: 'answer',
+        confidence: 100,
+        source: 'ai_qa',
+        provider: providerName
+    });
 
     return items;
 }

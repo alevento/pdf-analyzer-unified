@@ -1,5 +1,23 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
+## v0.13 (2025-10-21)
+### Modifiche
+- **Download universale per tutti i risultati AI**: Abilitato download CSV/Excel/JSON per Vision e Q&A
+- Aggiunta funzione `convertVisionToDownloadFormat()` per analisi visione
+- Aggiunta funzione `convertQAToDownloadFormat()` per domande e risposte
+- Visualizzazione provider AI corrente nei messaggi di caricamento Vision e Q&A
+- Pulsanti download ora visibili per tutti i tipi di analisi AI
+
+### Nuove funzionalità
+- Download risultati analisi visione in formato CSV/Excel/JSON
+- Download risposte Q&A con domanda e risposta in formato strutturato
+- Metadati provider AI inclusi nei download per tracciabilità
+
+### File modificati
+- `static/unified.js`: Aggiunte funzioni di conversione e abilitato download per Vision e Q&A
+
+---
+
 ## v0.12 (2025-10-21)
 ### Modifiche
 - **Integrazione Multi-Provider AI**: Supporto per Claude, OpenAI, Gemini e Novita AI

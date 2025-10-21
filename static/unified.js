@@ -1866,4 +1866,96 @@ async function extractDimensionsForTemplate(dimensionPromptId) {
     }
 }
 
+// ============================================================================
+// AI PROVIDER SELECTION
+// ============================================================================
+
+async function loadAIProviders() {
+    try {
+        const response = await fetch('/ai/providers');
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.getElementById('aiProviderSelect');
+
+            if (!select) return;
+
+            // Clear and populate
+            select.innerHTML = '';
+
+            if (Object.keys(data.providers).length === 0) {
+                select.innerHTML = '<option value="">Nessun provider disponibile</option>';
+                select.disabled = true;
+                return;
+            }
+
+            // Add providers
+            for (const [key, name] of Object.entries(data.providers)) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = name;
+                if (key === data.current) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            }
+
+            select.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error loading AI providers:', error);
+    }
+}
+
+async function switchAIProvider() {
+    const select = document.getElementById('aiProviderSelect');
+    const providerKey = select.value;
+
+    if (!providerKey) return;
+
+    try {
+        const response = await fetch('/ai/provider/set', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({provider: providerKey})
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update status display
+            checkAIStatus();
+            status.textContent = `Provider cambiato: ${data.provider_name}`;
+        }
+    } catch (error) {
+        console.error('Error switching AI provider:', error);
+    }
+}
+
+async function checkAIStatus() {
+    try {
+        const response = await fetch('/ai/status');
+        const data = await response.json();
+
+        if (data.enabled) {
+            opusStatus.style.backgroundColor = '#d4edda';
+            opusStatus.style.color = '#155724';
+            opusStatus.innerHTML = `<strong>✓</strong> ${data.message}`;
+        } else {
+            opusStatus.style.backgroundColor = '#fff3cd';
+            opusStatus.style.color = '#856404';
+            opusStatus.innerHTML = `<strong>⚠</strong> ${data.message}`;
+        }
+    } catch (error) {
+        opusStatus.style.backgroundColor = '#f8d7da';
+        opusStatus.style.color = '#721c24';
+        opusStatus.textContent = 'Errore controllo AI';
+    }
+}
+
+// Load AI providers on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadAIProviders();
+    checkAIStatus();
+});
+
 

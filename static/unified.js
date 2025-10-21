@@ -658,10 +658,10 @@ async function handleAnalyze() {
             document.getElementById('downloadButtons').style.display = 'none';
             currentDisplayData = null;
         } else if (data.success && data.analysis) {
-            displayAnalysisResults(data.analysis);
+            displayAnalysisResults(data.analysis, providerName);
 
             // Convert analysis to downloadable format (array of items)
-            currentDisplayData = convertAnalysisToDownloadFormat(data.analysis);
+            currentDisplayData = convertAnalysisToDownloadFormat(data.analysis, providerName);
             document.getElementById('downloadButtons').style.display = 'block';
 
             status.textContent = 'Analisi AI completata';
@@ -788,7 +788,8 @@ async function handleAsk() {
 }
 
 async function handleSummarize() {
-    textList.innerHTML = '<div class="ai-loading">📝 Creazione riepilogo con Claude Opus...</div>';
+    const providerName = document.getElementById('aiProviderSelect').selectedOptions[0]?.text || 'AI';
+    textList.innerHTML = `<div class="ai-loading">📝 Creazione riepilogo con ${providerName}...</div>`;
     summarizeBtn.disabled = true;
     status.textContent = 'Creazione riepilogo AI...';
 
@@ -802,10 +803,10 @@ async function handleSummarize() {
             document.getElementById('downloadButtons').style.display = 'none';
             currentDisplayData = null;
         } else if (data.success && data.summary) {
-            displaySummaryResults(data.summary);
+            displaySummaryResults(data.summary, providerName);
 
             // Convert summary to downloadable format (array of items)
-            currentDisplayData = convertSummaryToDownloadFormat(data.summary);
+            currentDisplayData = convertSummaryToDownloadFormat(data.summary, providerName);
             document.getElementById('downloadButtons').style.display = 'block';
 
             status.textContent = 'Riepilogo AI completato';
@@ -820,8 +821,8 @@ async function handleSummarize() {
     }
 }
 
-function displayAnalysisResults(analysis) {
-    let html = '<div class="ai-result"><h3>🔬 Analisi Intelligente Claude Opus</h3>';
+function displayAnalysisResults(analysis, providerName = 'AI') {
+    let html = `<div class="ai-result"><h3>🔬 Analisi Intelligente ${providerName}</h3>`;
 
     if (analysis.numeri_chiave && analysis.numeri_chiave.length > 0) {
         html += '<h4 style="margin-top: 10px; color: #2c3e50;">📊 Numeri Chiave</h4>';
@@ -867,8 +868,8 @@ function displayAnalysisResults(analysis) {
     textList.innerHTML = html;
 }
 
-function displaySummaryResults(summary) {
-    let html = '<div class="ai-result"><h3>📄 Riepilogo Documento Claude Opus</h3>';
+function displaySummaryResults(summary, providerName = 'AI') {
+    let html = `<div class="ai-result"><h3>📄 Riepilogo Documento ${providerName}</h3>`;
 
     if (summary.tipo_documento) {
         html += `<div class="ai-result-item"><strong>Tipo:</strong> ${escapeHtml(summary.tipo_documento)}</div>`;
@@ -974,7 +975,7 @@ async function downloadResults(format) {
 // AI DATA CONVERSION FUNCTIONS FOR DOWNLOAD
 // ============================================================================
 
-function convertAnalysisToDownloadFormat(analysis) {
+function convertAnalysisToDownloadFormat(analysis, providerName = 'AI') {
     // Convert AI analysis object to array format suitable for download
     const items = [];
     let id = 0;
@@ -987,7 +988,8 @@ function convertAnalysisToDownloadFormat(analysis) {
                 text: item,
                 type: 'numero_chiave',
                 confidence: 100,
-                source: 'ai_analysis'
+                source: 'ai_analysis',
+                provider: providerName
             });
         });
     }
@@ -1000,7 +1002,8 @@ function convertAnalysisToDownloadFormat(analysis) {
                 text: item,
                 type: 'data_critica',
                 confidence: 100,
-                source: 'ai_analysis'
+                source: 'ai_analysis',
+                provider: providerName
             });
         });
     }
@@ -1013,7 +1016,8 @@ function convertAnalysisToDownloadFormat(analysis) {
                 text: item,
                 type: 'riferimento',
                 confidence: 100,
-                source: 'ai_analysis'
+                source: 'ai_analysis',
+                provider: providerName
             });
         });
     }
@@ -1026,7 +1030,8 @@ function convertAnalysisToDownloadFormat(analysis) {
                 text: item,
                 type: 'anomalia',
                 confidence: 100,
-                source: 'ai_analysis'
+                source: 'ai_analysis',
+                provider: providerName
             });
         });
     }
@@ -1039,7 +1044,8 @@ function convertAnalysisToDownloadFormat(analysis) {
                 text: item,
                 type: 'pattern',
                 confidence: 100,
-                source: 'ai_analysis'
+                source: 'ai_analysis',
+                provider: providerName
             });
         });
     }
@@ -1051,14 +1057,15 @@ function convertAnalysisToDownloadFormat(analysis) {
             text: analysis.riepilogo,
             type: 'riepilogo',
             confidence: 100,
-            source: 'ai_analysis'
+            source: 'ai_analysis',
+            provider: providerName
         });
     }
 
     return items;
 }
 
-function convertSummaryToDownloadFormat(summary) {
+function convertSummaryToDownloadFormat(summary, providerName = 'AI') {
     // Convert AI summary object to array format suitable for download
     const items = [];
     let id = 0;
@@ -1070,7 +1077,8 @@ function convertSummaryToDownloadFormat(summary) {
             text: summary.tipo_documento,
             type: 'tipo_documento',
             confidence: 100,
-            source: 'ai_summary'
+            source: 'ai_summary',
+            provider: providerName
         });
     }
 
@@ -1081,7 +1089,8 @@ function convertSummaryToDownloadFormat(summary) {
             text: summary.scopo,
             type: 'scopo',
             confidence: 100,
-            source: 'ai_summary'
+            source: 'ai_summary',
+            provider: providerName
         });
     }
 
@@ -1093,7 +1102,8 @@ function convertSummaryToDownloadFormat(summary) {
                 text: item,
                 type: 'informazione_chiave',
                 confidence: 100,
-                source: 'ai_summary'
+                source: 'ai_summary',
+                provider: providerName
             });
         });
     }
@@ -1106,7 +1116,8 @@ function convertSummaryToDownloadFormat(summary) {
                 text: item,
                 type: 'numero_rilevante',
                 confidence: 100,
-                source: 'ai_summary'
+                source: 'ai_summary',
+                provider: providerName
             });
         });
     }
@@ -1119,7 +1130,8 @@ function convertSummaryToDownloadFormat(summary) {
                 text: item,
                 type: 'data_importante',
                 confidence: 100,
-                source: 'ai_summary'
+                source: 'ai_summary',
+                provider: providerName
             });
         });
     }
@@ -1132,7 +1144,8 @@ function convertSummaryToDownloadFormat(summary) {
                 text: item,
                 type: 'riferimento',
                 confidence: 100,
-                source: 'ai_summary'
+                source: 'ai_summary',
+                provider: providerName
             });
         });
     }
@@ -1144,7 +1157,8 @@ function convertSummaryToDownloadFormat(summary) {
             text: summary.conclusioni,
             type: 'conclusioni',
             confidence: 100,
-            source: 'ai_summary'
+            source: 'ai_summary',
+            provider: providerName
         });
     }
 

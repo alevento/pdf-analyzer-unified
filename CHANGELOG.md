@@ -1,5 +1,23 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
+## v0.14 (2025-10-21)
+### Modifiche
+- **Intestazioni dinamiche AI**: Nome provider AI visualizzato correttamente nei titoli dei risultati
+- Funzione `displayAnalysisResults()` ora accetta parametro `providerName`
+- Funzione `displaySummaryResults()` ora accetta parametro `providerName`
+- Aggiornate funzioni di conversione per includere metadata provider
+- Messaggi di caricamento aggiornati per `handleSummarize()`
+
+### Miglioramenti UX
+- I titoli "Analisi Intelligente" e "Riepilogo Documento" mostrano il provider utilizzato (Claude Opus 4, GPT-4 Turbo, Gemini 2.5 Pro, Qwen VL)
+- Coerenza visiva tra tutte le funzioni AI (Analysis, Summary, Vision, Q&A)
+- Metadata provider inclusi nei download per tracciabilità completa
+
+### File modificati
+- `static/unified.js`: Aggiornate funzioni display e conversione con parametro providerName
+
+---
+
 ## v0.13 (2025-10-21)
 ### Modifiche
 - **Download universale per tutti i risultati AI**: Abilitato download CSV/Excel/JSON per Vision e Q&A

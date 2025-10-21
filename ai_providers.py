@@ -4,6 +4,7 @@ Supported providers:
 - Claude (Anthropic)
 - OpenAI (GPT-4, GPT-4 Vision)
 - Google Gemini
+- Novita AI (Qwen VL)
 """
 
 import os
@@ -257,6 +258,85 @@ class GeminiProvider(AIProvider):
         return "Gemini 1.5 Pro"
 
 
+class NovitaAIProvider(AIProvider):
+    """Novita AI provider (Qwen VL and other models)"""
+
+    def __init__(self, api_key: str):
+        super().__init__(api_key)
+        self.client = None
+        self.base_url = "https://api.novita.ai/v3/openai"
+        if api_key:
+            try:
+                from openai import OpenAI
+                self.client = OpenAI(
+                    api_key=api_key,
+                    base_url=self.base_url
+                )
+            except ImportError:
+                print("Warning: openai package not installed")
+
+    def analyze_text(self, prompt: str, text: str) -> str:
+        if not self.client:
+            raise Exception("Novita AI client not initialized")
+
+        response = self.client.chat.completions.create(
+            model="qwen/qwen-2-72b-instruct",
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
+                {"role": "user", "content": f"{prompt}\n\n{text}"}
+            ],
+            max_tokens=4096
+        )
+        return response.choices[0].message.content
+
+    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+        if not self.client:
+            raise Exception("Novita AI client not initialized")
+
+        # Ensure proper data URL format
+        if not image_base64.startswith('data:'):
+            image_base64 = f"data:image/png;base64,{image_base64}"
+
+        response = self.client.chat.completions.create(
+            model="qwen/qwen-vl-plus",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_base64}
+                    }
+                ]
+            }],
+            max_tokens=4096
+        )
+        return response.choices[0].message.content
+
+    def chat(self, messages: list) -> str:
+        if not self.client:
+            raise Exception("Novita AI client not initialized")
+
+        # Convert messages format if needed
+        formatted_messages = []
+        for msg in messages:
+            if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                formatted_messages.append(msg)
+
+        response = self.client.chat.completions.create(
+            model="qwen/qwen-2-72b-instruct",
+            messages=formatted_messages,
+            max_tokens=4096
+        )
+        return response.choices[0].message.content
+
+    def is_available(self) -> bool:
+        return self.client is not None
+
+    def get_name(self) -> str:
+        return "Qwen VL (Novita AI)"
+
+
 class AIProviderManager:
     """Manages multiple AI providers and allows switching between them"""
 
@@ -290,6 +370,13 @@ class AIProviderManager:
             self.providers['gemini'] = GeminiProvider(gemini_key)
             if self.current_provider is None:
                 self.current_provider = 'gemini'
+
+        # Novita AI
+        novita_key = os.environ.get('NOVITA_API_KEY', '')
+        if novita_key:
+            self.providers['novita'] = NovitaAIProvider(novita_key)
+            if self.current_provider is None:
+                self.current_provider = 'novita'
 
     def get_available_providers(self) -> Dict[str, str]:
         """Get list of available providers"""

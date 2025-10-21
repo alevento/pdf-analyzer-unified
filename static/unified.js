@@ -59,8 +59,9 @@ document.addEventListener('DOMContentLoaded', function() {
     askBtn.addEventListener('click', handleAsk);
     summarizeBtn.addEventListener('click', handleSummarize);
 
-    // Check Opus status on load
-    checkOpusStatus();
+    // Check AI status and load providers on page load
+    loadAIProviders();
+    checkAIStatus();
 
     // Zoom controls
     document.getElementById('zoomIn').addEventListener('click', () => zoomImage(25));
@@ -165,8 +166,8 @@ async function uploadFile() {
             extractPdfplumberBtn.disabled = false;
             extractOcrBtn.disabled = false;
 
-            // Enable AI controls if Opus is available
-            checkOpusStatus().then(() => {
+            // Enable AI controls if provider is available
+            checkAIStatus().then(() => {
                 if (opusStatus.textContent.includes('✓')) {
                     analyzeBtn.disabled = false;
                     visionBtn.disabled = false;
@@ -638,29 +639,8 @@ function applyZoom() {
 }
 
 // ============================================================================
-// AI ANALYSIS FUNCTIONS (OPUS INTEGRATION)
+// AI ANALYSIS FUNCTIONS (AI PROVIDER INTEGRATION)
 // ============================================================================
-
-async function checkOpusStatus() {
-    try {
-        const response = await fetch('/opus/status');
-        const data = await response.json();
-
-        if (data.enabled) {
-            opusStatus.style.backgroundColor = '#d4edda';
-            opusStatus.style.color = '#155724';
-            opusStatus.innerHTML = '<strong>✓</strong> ' + data.message;
-        } else {
-            opusStatus.style.backgroundColor = '#fff3cd';
-            opusStatus.style.color = '#856404';
-            opusStatus.innerHTML = '<strong>⚠</strong> ' + data.message;
-        }
-    } catch (error) {
-        opusStatus.style.backgroundColor = '#f8d7da';
-        opusStatus.style.color = '#721c24';
-        opusStatus.textContent = 'Errore controllo Opus';
-    }
-}
 
 async function handleAnalyze() {
     textList.innerHTML = '<div class="ai-loading">🤖 Analisi in corso con Claude Opus...</div>';
@@ -1951,11 +1931,5 @@ async function checkAIStatus() {
         opusStatus.textContent = 'Errore controllo AI';
     }
 }
-
-// Load AI providers on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadAIProviders();
-    checkAIStatus();
-});
 
 

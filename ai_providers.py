@@ -43,6 +43,11 @@ class AIProvider(ABC):
         """Get provider display name"""
         pass
 
+    @abstractmethod
+    def get_capabilities(self) -> Dict[str, bool]:
+        """Get provider capabilities"""
+        pass
+
 
 class ClaudeProvider(AIProvider):
     """Claude (Anthropic) provider"""
@@ -119,6 +124,14 @@ class ClaudeProvider(AIProvider):
     def get_name(self) -> str:
         return "Claude Opus 4"
 
+    def get_capabilities(self) -> Dict[str, bool]:
+        return {
+            "text_analysis": True,
+            "vision_analysis": True,
+            "chat": True,
+            "dimension_extraction": True
+        }
+
 
 class OpenAIProvider(AIProvider):
     """OpenAI (GPT-4) provider"""
@@ -194,6 +207,14 @@ class OpenAIProvider(AIProvider):
     def get_name(self) -> str:
         return "GPT-4 Turbo"
 
+    def get_capabilities(self) -> Dict[str, bool]:
+        return {
+            "text_analysis": True,
+            "vision_analysis": True,
+            "chat": True,
+            "dimension_extraction": True
+        }
+
 
 class GeminiProvider(AIProvider):
     """Google Gemini provider"""
@@ -205,7 +226,7 @@ class GeminiProvider(AIProvider):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
-                self.client = genai.GenerativeModel('gemini-1.5-pro')
+                self.client = genai.GenerativeModel('gemini-2.5-pro')
             except ImportError:
                 print("Warning: google-generativeai package not installed")
 
@@ -255,7 +276,15 @@ class GeminiProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "Gemini 1.5 Pro"
+        return "Gemini 2.5 Pro"
+
+    def get_capabilities(self) -> Dict[str, bool]:
+        return {
+            "text_analysis": True,
+            "vision_analysis": True,
+            "chat": True,
+            "dimension_extraction": True
+        }
 
 
 class NovitaAIProvider(AIProvider):
@@ -336,6 +365,14 @@ class NovitaAIProvider(AIProvider):
     def get_name(self) -> str:
         return "Qwen VL (Novita AI)"
 
+    def get_capabilities(self) -> Dict[str, bool]:
+        return {
+            "text_analysis": True,
+            "vision_analysis": True,
+            "chat": True,
+            "dimension_extraction": True
+        }
+
 
 class AIProviderManager:
     """Manages multiple AI providers and allows switching between them"""
@@ -409,3 +446,15 @@ class AIProviderManager:
     def is_any_available(self) -> bool:
         """Check if any provider is available"""
         return len(self.get_available_providers()) > 0
+
+    def get_current_capabilities(self) -> Dict[str, bool]:
+        """Get capabilities of current provider"""
+        provider = self.get_current_provider()
+        if provider:
+            return provider.get_capabilities()
+        return {
+            "text_analysis": False,
+            "vision_analysis": False,
+            "chat": False,
+            "dimension_extraction": False
+        }

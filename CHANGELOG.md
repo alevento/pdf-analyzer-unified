@@ -1,5 +1,33 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
+## v0.12 (2025-10-21)
+### Modifiche
+- **Integrazione Multi-Provider AI**: Supporto per Claude, OpenAI, Gemini e Novita AI
+- Sistema di capabilities per abilitare/disabilitare funzionalità in base al provider selezionato
+- Aggiornamento dinamico UI quando si cambia provider AI
+- Tutte le funzioni di analisi ora utilizzano il provider selezionato dall'utente
+- Script di test per validare tutte le API keys configurate (`test_all_providers.py`)
+- Aggiornato Gemini a versione 2.5 Pro (da 1.5 Pro)
+- Fix f-string formatting nel prompt di analisi
+
+### Nuove funzionalità
+- Dropdown per selezione provider AI in tempo reale
+- Funzione `updateButtonsBasedOnCapabilities()` per gestione UI dinamica
+- Metodo `get_capabilities()` per ogni provider AI
+- Visualizzazione provider corrente nei messaggi di caricamento
+
+### File modificati
+- `ai_providers.py`: Aggiunti metodi get_capabilities() per tutti i provider
+- `unified_app.py`: Refactoring funzioni AI per usare provider manager
+- `static/unified.js`: Gestione dinamica UI basata su capabilities
+- `test_all_providers.py`: Nuovo file per testing API keys
+
+### File nuovi
+- `test_all_providers.py`: Script completo per testare tutte le API keys
+- `list_gemini_models.py`: Tool per enumerare modelli Gemini disponibili
+
+---
+
 ## v0.11 (2025-10-14)
 ### Modifiche
 - **Filtro densità testo per 90°**: Eliminati rettangoli fucsia in aree con alta densità di testo

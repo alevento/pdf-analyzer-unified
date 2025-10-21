@@ -643,7 +643,8 @@ function applyZoom() {
 // ============================================================================
 
 async function handleAnalyze() {
-    textList.innerHTML = '<div class="ai-loading">🤖 Analisi in corso con Claude Opus...</div>';
+    const providerName = document.getElementById('aiProviderSelect').selectedOptions[0]?.text || 'AI';
+    textList.innerHTML = `<div class="ai-loading">🤖 Analisi in corso con ${providerName}...</div>`;
     analyzeBtn.disabled = true;
     status.textContent = 'Analisi AI in corso...';
 
@@ -685,7 +686,8 @@ async function handleVision() {
     document.getElementById('downloadButtons').style.display = 'none';
     currentDisplayData = null;
 
-    textList.innerHTML = '<div class="ai-loading">👁️ Analisi visione in corso con Claude Opus...</div>';
+    const providerName = document.getElementById('aiProviderSelect').selectedOptions[0]?.text || 'AI';
+    textList.innerHTML = `<div class="ai-loading">👁️ Analisi visione in corso con ${providerName}...</div>`;
     visionBtn.disabled = true;
     status.textContent = 'Analisi visione AI in corso...';
 
@@ -1905,6 +1907,10 @@ async function switchAIProvider() {
             // Update status display
             checkAIStatus();
             status.textContent = `Provider cambiato: ${data.provider_name}`;
+            // Update button visibility based on capabilities
+            if (data.capabilities) {
+                updateButtonsBasedOnCapabilities(data.capabilities);
+            }
         }
     } catch (error) {
         console.error('Error switching AI provider:', error);
@@ -1920,15 +1926,120 @@ async function checkAIStatus() {
             opusStatus.style.backgroundColor = '#d4edda';
             opusStatus.style.color = '#155724';
             opusStatus.innerHTML = `<strong>✓</strong> ${data.message}`;
+            // Update button visibility based on capabilities
+            if (data.capabilities) {
+                updateButtonsBasedOnCapabilities(data.capabilities);
+            }
         } else {
             opusStatus.style.backgroundColor = '#fff3cd';
             opusStatus.style.color = '#856404';
             opusStatus.innerHTML = `<strong>⚠</strong> ${data.message}`;
+            // Disable all AI buttons if no provider is available
+            updateButtonsBasedOnCapabilities({
+                text_analysis: false,
+                vision_analysis: false,
+                chat: false,
+                dimension_extraction: false
+            });
         }
     } catch (error) {
         opusStatus.style.backgroundColor = '#f8d7da';
         opusStatus.style.color = '#721c24';
         opusStatus.textContent = 'Errore controllo AI';
+        // Disable all AI buttons on error
+        updateButtonsBasedOnCapabilities({
+            text_analysis: false,
+            vision_analysis: false,
+            chat: false,
+            dimension_extraction: false
+        });
+    }
+}
+
+function updateButtonsBasedOnCapabilities(capabilities) {
+    // Update AI Analysis buttons based on provider capabilities
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const visionBtn = document.getElementById('visionBtn');
+    const askBtn = document.getElementById('askBtn');
+    const summarizeBtn = document.getElementById('summarizeBtn');
+
+    // Text analysis capability (for analyze and summarize)
+    if (analyzeBtn && summarizeBtn) {
+        const textEnabled = capabilities.text_analysis === true;
+        analyzeBtn.disabled = !textEnabled;
+        summarizeBtn.disabled = !textEnabled;
+
+        // Add visual indicator for disabled state
+        if (!textEnabled) {
+            analyzeBtn.title = 'Il provider AI corrente non supporta l\'analisi testuale';
+            summarizeBtn.title = 'Il provider AI corrente non supporta l\'analisi testuale';
+        } else {
+            analyzeBtn.title = '';
+            summarizeBtn.title = '';
+        }
+    }
+
+    // Vision analysis capability
+    if (visionBtn) {
+        const visionEnabled = capabilities.vision_analysis === true;
+        visionBtn.disabled = !visionEnabled;
+
+        if (!visionEnabled) {
+            visionBtn.title = 'Il provider AI corrente non supporta l\'analisi visiva';
+        } else {
+            visionBtn.title = '';
+        }
+    }
+
+    // Chat capability (for ask button)
+    if (askBtn) {
+        const chatEnabled = capabilities.chat === true;
+        askBtn.disabled = !chatEnabled;
+
+        if (!chatEnabled) {
+            askBtn.title = 'Il provider AI corrente non supporta la chat';
+        } else {
+            askBtn.title = '';
+        }
+    }
+
+    // Update extraction method checkboxes based on capabilities
+    const methodAIAnalysis = document.getElementById('methodAIAnalysis');
+    const methodAISummary = document.getElementById('methodAISummary');
+    const methodAIVision = document.getElementById('methodAIVision');
+
+    if (methodAIAnalysis && methodAISummary) {
+        const textEnabled = capabilities.text_analysis === true;
+        methodAIAnalysis.disabled = !textEnabled;
+        methodAISummary.disabled = !textEnabled;
+
+        if (!textEnabled) {
+            methodAIAnalysis.checked = false;
+            methodAISummary.checked = false;
+            const analysisLabel = document.querySelector('label[for="methodAIAnalysis"]');
+            const summaryLabel = document.querySelector('label[for="methodAISummary"]');
+            if (analysisLabel) analysisLabel.style.opacity = '0.5';
+            if (summaryLabel) summaryLabel.style.opacity = '0.5';
+        } else {
+            const analysisLabel = document.querySelector('label[for="methodAIAnalysis"]');
+            const summaryLabel = document.querySelector('label[for="methodAISummary"]');
+            if (analysisLabel) analysisLabel.style.opacity = '1';
+            if (summaryLabel) summaryLabel.style.opacity = '1';
+        }
+    }
+
+    if (methodAIVision) {
+        const visionEnabled = capabilities.vision_analysis === true;
+        methodAIVision.disabled = !visionEnabled;
+
+        if (!visionEnabled) {
+            methodAIVision.checked = false;
+            const visionLabel = document.querySelector('label[for="methodAIVision"]');
+            if (visionLabel) visionLabel.style.opacity = '0.5';
+        } else {
+            const visionLabel = document.querySelector('label[for="methodAIVision"]');
+            if (visionLabel) visionLabel.style.opacity = '1';
+        }
     }
 }
 

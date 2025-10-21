@@ -1241,8 +1241,10 @@ def analyze_text_with_opus(extracted_data, pdf_type):
             'riepilogo': 'Analisi simulata in DEMO MODE. Configura una API key valida per usare Claude Opus reale.'
         }}
 
-    if not anthropic_client:
-        return {'error': 'Claude Opus not configured. Set ANTHROPIC_API_KEY environment variable.'}
+    # Get current AI provider
+    provider = ai_manager.get_current_provider()
+    if not provider:
+        return {'error': 'No AI provider configured. Configure an API key in .env file.'}
 
     # Prepare data summary
     numbers_summary = []
@@ -1265,23 +1267,19 @@ Fornisci un'analisi strutturata che includa:
 5. **Pattern**: Identifica schemi o relazioni tra i dati
 
 Rispondi in italiano in formato JSON con questa struttura:
-{
+{{
   "numeri_chiave": ["lista di numeri importanti con spiegazione"],
   "date_critiche": ["lista di date con contesto"],
   "riferimenti": ["lista di riferimenti trovati"],
   "anomalie": ["eventuali anomalie rilevate"],
   "pattern": ["pattern o relazioni identificate"],
   "riepilogo": "breve riepilogo generale"
-}"""
+}}"""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        # Use the current AI provider
+        analysis_text = provider.analyze_text(prompt, "")
 
-        analysis_text = message.content[0].text
         # Try to parse as JSON
         try:
             analysis = json.loads(analysis_text)
@@ -1292,7 +1290,7 @@ Rispondi in italiano in formato JSON con questa struttura:
         return {'success': True, 'analysis': analysis}
 
     except Exception as e:
-        return {'error': f'Error calling Claude Opus: {str(e)}'}
+        return {'error': f'Error calling AI provider ({provider.get_name()}): {str(e)}'}
 
 
 def vision_guided_extraction(image_base64, pdf_type):
@@ -1323,12 +1321,10 @@ def vision_guided_extraction(image_base64, pdf_type):
 
 ⚠️ Nota: Questa è una risposta simulata. Per un'analisi visiva reale, configura una API key valida di Anthropic.'''}
 
-    if not anthropic_client:
-        return {'error': 'Claude Opus not configured. Set ANTHROPIC_API_KEY environment variable.'}
-
-    # Remove data URL prefix if present
-    if image_base64.startswith('data:'):
-        image_base64 = image_base64.split(',')[1]
+    # Get current AI provider
+    provider = ai_manager.get_current_provider()
+    if not provider:
+        return {'error': 'No AI provider configured. Configure an API key in .env file.'}
 
     prompt = f"""Analizza questa pagina di un PDF {pdf_type} e identifica:
 
@@ -1341,33 +1337,12 @@ def vision_guided_extraction(image_base64, pdf_type):
 Fornisci un'analisi dettagliata in italiano, evidenziando elementi che potrebbero essere difficili da estrarre con OCR tradizionale."""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=3000,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": image_base64
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
-            }]
-        )
-
-        vision_analysis = message.content[0].text
+        # Use the current AI provider's vision capability
+        vision_analysis = provider.analyze_vision(prompt, image_base64)
         return {'success': True, 'vision_analysis': vision_analysis}
 
     except Exception as e:
-        return {'error': f'Error calling Claude Opus vision: {str(e)}'}
+        return {'error': f'Error calling AI provider vision ({provider.get_name()}): {str(e)}'}
 
 
 def answer_question_about_pdf(question, full_text, extracted_data):
@@ -1391,8 +1366,10 @@ Basandomi sul documento analizzato, posso fornire questa risposta di esempio:
 
 Per ottenere risposte accurate, attiva l'API di Claude Opus sul tuo account Anthropic.'''}
 
-    if not anthropic_client:
-        return {'error': 'Claude Opus not configured. Set ANTHROPIC_API_KEY environment variable.'}
+    # Get current AI provider
+    provider = ai_manager.get_current_provider()
+    if not provider:
+        return {'error': 'No AI provider configured. Configure an API key in .env file.'}
 
     # Create context from full text and extracted data
     context = f"""Testo completo del PDF:
@@ -1411,17 +1388,12 @@ Domanda: {question}
 Rispondi in italiano, citando i dati specifici dal documento quando possibile."""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        answer = message.content[0].text
+        # Use the current AI provider's chat capability
+        answer = provider.chat([{"role": "user", "content": prompt}])
         return {'success': True, 'answer': answer}
 
     except Exception as e:
-        return {'error': f'Error calling Claude Opus: {str(e)}'}
+        return {'error': f'Error calling AI provider ({provider.get_name()}): {str(e)}'}
 
 
 def summarize_document(full_text, extracted_data, pdf_type):
@@ -1448,8 +1420,10 @@ def summarize_document(full_text, extracted_data, pdf_type):
             'conclusioni': 'DEMO MODE ATTIVO - Questo e\' un riepilogo simulato. Per analisi reale del documento, configura una API key valida di Anthropic Claude Opus.'
         }}
 
-    if not anthropic_client:
-        return {'error': 'Claude Opus not configured. Set ANTHROPIC_API_KEY environment variable.'}
+    # Get current AI provider
+    provider = ai_manager.get_current_provider()
+    if not provider:
+        return {'error': 'No AI provider configured. Configure an API key in .env file.'}
 
     # Prepare summary of extracted data by type
     data_by_type = {}
@@ -1481,13 +1455,9 @@ Crea un riepilogo strutturato in formato JSON con:
 Rispondi SOLO con il JSON, senza testo aggiuntivo."""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=2500,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        # Use the current AI provider
+        summary_text = provider.analyze_text(prompt, "")
 
-        summary_text = message.content[0].text
         # Try to parse as JSON
         try:
             summary = json.loads(summary_text)
@@ -1498,7 +1468,7 @@ Rispondi SOLO con il JSON, senza testo aggiuntivo."""
         return {'success': True, 'summary': summary}
 
     except Exception as e:
-        return {'error': f'Error calling Claude Opus: {str(e)}'}
+        return {'error': f'Error calling AI provider ({provider.get_name()}): {str(e)}'}
 
 
 # ============================================================================
@@ -2000,7 +1970,8 @@ def set_ai_provider():
         return jsonify({
             'success': True,
             'provider': provider_key,
-            'provider_name': ai_manager.get_current_provider_name()
+            'provider_name': ai_manager.get_current_provider_name(),
+            'capabilities': ai_manager.get_current_capabilities()
         })
     else:
         return jsonify({'error': 'Provider not available'}), 404
@@ -2022,7 +1993,8 @@ def ai_status():
             'provider': ai_manager.current_provider,
             'provider_name': ai_manager.get_current_provider_name(),
             'message': f'{ai_manager.get_current_provider_name()} attivo',
-            'available_providers': ai_manager.get_available_providers()
+            'available_providers': ai_manager.get_available_providers(),
+            'capabilities': ai_manager.get_current_capabilities()
         })
     else:
         return jsonify({

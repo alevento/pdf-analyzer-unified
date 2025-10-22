@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.33 (2025-10-22)
+### Modifiche
+Ripristinati parametri precedenti Gemini: temp=0.7, top_p=0.95, top_k=40 (mantenuta gestione errori finish_reason)
+
+---
+
+
 ## v0.32 (2025-10-22)
 ### Modifiche
 Fix Gemini safety blocks: aumentata temperatura da 0.2 a 0.4 e aggiunta gestione errori finish_reason con messaggi chiari

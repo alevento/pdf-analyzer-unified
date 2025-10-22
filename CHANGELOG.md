@@ -1,5 +1,28 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
+
+## v0.17 (2025-10-22)
+### Modifiche
+Sistema di versioning automatico con commit GitHub integrato
+
+---
+
+## v0.15 (2025-10-21)
+### Fix
+- **Fix modello Novita AI Vision**: Risolto errore 404 per modello vision non disponibile
+- Aggiornato da `qwen/qwen-vl-plus` a `meta-llama/llama-3.2-90b-vision-instruct`
+- Nome provider aggiornato da "Qwen VL (Novita AI)" a "Llama 3.2 Vision (Novita AI)"
+
+### Dettagli tecnici
+- Il modello `qwen/qwen-vl-plus` non è disponibile su Novita AI
+- Utilizzato modello Llama 3.2 90B Vision per analisi visione
+- Analisi vision ora funzionante con Novita AI
+
+### File modificati
+- `ai_providers.py`: Aggiornato NovitaAIProvider.analyze_vision() e get_name()
+
+---
+
 ## v0.14 (2025-10-21)
 ### Modifiche
 - **Intestazioni dinamiche AI**: Nome provider AI visualizzato correttamente nei titoli dei risultati

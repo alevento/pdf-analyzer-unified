@@ -327,7 +327,7 @@ class NovitaAIProvider(AIProvider):
             image_base64 = f"data:image/png;base64,{image_base64}"
 
         response = self.client.chat.completions.create(
-            model="qwen/qwen-vl-plus",
+            model="meta-llama/llama-3.2-90b-vision-instruct",
             messages=[{
                 "role": "user",
                 "content": [
@@ -363,7 +363,7 @@ class NovitaAIProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "Qwen VL (Novita AI)"
+        return "Llama 3.2 Vision (Novita AI)"
 
     def get_capabilities(self) -> Dict[str, bool]:
         return {

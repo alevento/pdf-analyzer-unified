@@ -1477,7 +1477,14 @@ Rispondi SOLO con il JSON, senza testo aggiuntivo."""
 
 @app.route('/')
 def index():
-    return render_template('unified.html')
+    # Leggi la versione dal file VERSION.txt
+    version = "0.0"
+    try:
+        with open('VERSION.txt', 'r') as f:
+            version = f.read().strip()
+    except Exception as e:
+        print(f"Errore lettura VERSION.txt: {e}")
+    return render_template('unified.html', version=version)
 
 
 @app.route('/upload', methods=['POST'])

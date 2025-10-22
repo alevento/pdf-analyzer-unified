@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.27 (2025-10-22)
+### Modifiche
+Aggiunto Claude Sonnet 4.5 come provider separato - Best for coding and complex agents
+
+---
+
+
 ## v0.26 (2025-10-22)
 ### Modifiche
 Aggiornato a Claude Opus 4.1 (claude-opus-4-1-20250805) per analisi e estrazione dimensioni

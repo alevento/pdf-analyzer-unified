@@ -2738,8 +2738,8 @@ def extract_dimensions():
 
         provider_name = ai_manager.get_current_provider_name()
 
-        # For Claude Opus, use text API instead of vision API (cost optimization)
-        if ai_manager.current_provider == 'claude':
+        # For Claude models, use text API instead of vision API (cost optimization)
+        if ai_manager.current_provider in ['claude', 'claude-sonnet']:
             # Load extracted text data
             results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
             if not os.path.exists(results_path):
@@ -2824,8 +2824,8 @@ def extract_dimensions_with_context():
             enhanced_prompt += json.dumps(context['ai_summary'], ensure_ascii=False, indent=2)[:5000]
             enhanced_prompt += "\n\n"
 
-        # For Claude Opus, use text API instead of vision API (cost optimization)
-        if ai_manager.current_provider == 'claude':
+        # For Claude models, use text API instead of vision API (cost optimization)
+        if ai_manager.current_provider in ['claude', 'claude-sonnet']:
             # Use text API for Claude with the context
             dimensions_text = current_provider.analyze_text(enhanced_prompt, "")
         else:

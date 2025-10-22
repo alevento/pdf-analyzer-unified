@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.32 (2025-10-22)
+### Modifiche
+Fix Gemini safety blocks: aumentata temperatura da 0.2 a 0.4 e aggiunta gestione errori finish_reason con messaggi chiari
+
+---
+
+
 ## v0.31 (2025-10-22)
 ### Modifiche
 Abilitata modalità Thinking per Qwen 3 VL 235B: enable_thinking=True con parametri ottimizzati (temp=0.6, top_p=0.95) per ragionamento avanzato

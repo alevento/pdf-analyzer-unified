@@ -330,7 +330,7 @@ class GeminiProvider(AIProvider):
 
         import google.generativeai as genai
         generation_config = genai.GenerationConfig(
-            temperature=0.2,
+            temperature=0.4,
             top_p=0.9,
             top_k=20,
             max_output_tokens=8192,
@@ -340,6 +340,17 @@ class GeminiProvider(AIProvider):
             f"{prompt}\n\n{text}",
             generation_config=generation_config
         )
+
+        # Handle safety blocks and empty responses
+        if not response.candidates:
+            raise Exception("Gemini non ha generato una risposta. Possibile blocco di sicurezza.")
+
+        candidate = response.candidates[0]
+        if candidate.finish_reason and candidate.finish_reason != 1:  # 1 = STOP (normal)
+            finish_reason_map = {2: "SAFETY", 3: "RECITATION", 4: "OTHER"}
+            reason = finish_reason_map.get(candidate.finish_reason, f"UNKNOWN ({candidate.finish_reason})")
+            raise Exception(f"Gemini ha bloccato la risposta (finish_reason: {reason}). Prova ad aumentare la temperatura o cambiare provider.")
+
         return response.text
 
     def analyze_vision(self, prompt: str, image_base64: str) -> str:
@@ -360,7 +371,7 @@ class GeminiProvider(AIProvider):
         image = Image.open(io.BytesIO(image_data))
 
         generation_config = genai.GenerationConfig(
-            temperature=0.2,
+            temperature=0.4,
             top_p=0.9,
             top_k=20,
             max_output_tokens=8192,
@@ -370,6 +381,17 @@ class GeminiProvider(AIProvider):
             [prompt, image],
             generation_config=generation_config
         )
+
+        # Handle safety blocks and empty responses
+        if not response.candidates:
+            raise Exception("Gemini non ha generato una risposta. Possibile blocco di sicurezza.")
+
+        candidate = response.candidates[0]
+        if candidate.finish_reason and candidate.finish_reason != 1:  # 1 = STOP (normal)
+            finish_reason_map = {2: "SAFETY", 3: "RECITATION", 4: "OTHER"}
+            reason = finish_reason_map.get(candidate.finish_reason, f"UNKNOWN ({candidate.finish_reason})")
+            raise Exception(f"Gemini ha bloccato la risposta (finish_reason: {reason}). Prova ad aumentare la temperatura o cambiare provider.")
+
         return response.text
 
     def chat(self, messages: list) -> str:
@@ -388,7 +410,7 @@ class GeminiProvider(AIProvider):
                     chat_text += f"{role}: {content}\n\n"
 
         generation_config = genai.GenerationConfig(
-            temperature=0.2,
+            temperature=0.4,
             top_p=0.9,
             top_k=20,
             max_output_tokens=8192,
@@ -398,6 +420,17 @@ class GeminiProvider(AIProvider):
             chat_text,
             generation_config=generation_config
         )
+
+        # Handle safety blocks and empty responses
+        if not response.candidates:
+            raise Exception("Gemini non ha generato una risposta. Possibile blocco di sicurezza.")
+
+        candidate = response.candidates[0]
+        if candidate.finish_reason and candidate.finish_reason != 1:  # 1 = STOP (normal)
+            finish_reason_map = {2: "SAFETY", 3: "RECITATION", 4: "OTHER"}
+            reason = finish_reason_map.get(candidate.finish_reason, f"UNKNOWN ({candidate.finish_reason})")
+            raise Exception(f"Gemini ha bloccato la risposta (finish_reason: {reason}). Prova ad aumentare la temperatura o cambiare provider.")
+
         return response.text
 
     def is_available(self) -> bool:

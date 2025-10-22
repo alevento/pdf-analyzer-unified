@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.22 (2025-10-22)
+### Modifiche
+Fix NameError ai_provider_manager + UI miglioramenti AI Analysis
+
+---
+
+
 ## v0.21 (2025-10-22)
 ### Modifiche
 Estrazione dimensioni e template usano provider AI selezionato dinamicamente

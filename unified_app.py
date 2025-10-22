@@ -2210,7 +2210,7 @@ def generate_excel_from_template_with_opus(template_text, extracted_data):
     Use current AI provider to interpret template and generate Excel file
     """
     # Get current AI provider
-    current_provider = ai_provider_manager.get_current_provider()
+    current_provider = ai_manager.get_current_provider()
 
     if not current_provider and not DEMO_MODE:
         return {'error': 'Nessun provider AI configurato'}
@@ -2285,15 +2285,15 @@ Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con 
                 response_text = response_text.split('```')[1].split('```')[0]
 
             excel_data = json.loads(response_text.strip())
-            provider_name = ai_provider_manager.get_current_provider_name()
+            provider_name = ai_manager.get_current_provider_name()
             return {'success': True, 'excel_data': excel_data, 'provider': provider_name}
 
         except json.JSONDecodeError as e:
-            provider_name = ai_provider_manager.get_current_provider_name()
+            provider_name = ai_manager.get_current_provider_name()
             return {'error': f'Invalid JSON response from {provider_name}: {str(e)}'}
 
     except Exception as e:
-        provider_name = ai_provider_manager.get_current_provider_name()
+        provider_name = ai_manager.get_current_provider_name()
         return {'error': f'Error calling {provider_name}: {str(e)}'}
 
 
@@ -2725,14 +2725,14 @@ def extract_dimensions():
     """Extract dimensions from PDF page using current AI provider Vision"""
     try:
         # Use current AI provider instead of hardcoded Claude
-        current_provider = ai_provider_manager.get_current_provider()
+        current_provider = ai_manager.get_current_provider()
         if not current_provider:
             return jsonify({'error': 'Nessun provider AI configurato. Aggiungi le API keys al file .env'}), 400
 
         # Check if current provider supports vision
-        capabilities = ai_provider_manager.get_current_capabilities()
+        capabilities = ai_manager.get_current_capabilities()
         if not capabilities.get('vision_analysis'):
-            provider_name = ai_provider_manager.get_current_provider_name()
+            provider_name = ai_manager.get_current_provider_name()
             return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
         data = request.json
@@ -2745,7 +2745,7 @@ def extract_dimensions():
         # Call current provider's Vision API with custom prompt
         dimensions_text = current_provider.analyze_vision(prompt, image_base64)
 
-        provider_name = ai_provider_manager.get_current_provider_name()
+        provider_name = ai_manager.get_current_provider_name()
         return jsonify({
             'success': True,
             'dimensions': dimensions_text,
@@ -2756,7 +2756,7 @@ def extract_dimensions():
         import traceback
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni: {error_details}")
-        provider_name = ai_provider_manager.get_current_provider_name()
+        provider_name = ai_manager.get_current_provider_name()
         return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
 
 
@@ -2765,14 +2765,14 @@ def extract_dimensions_with_context():
     """Extract dimensions from PDF page using current AI provider Vision with custom prompt and context data"""
     try:
         # Use current AI provider instead of hardcoded Claude
-        current_provider = ai_provider_manager.get_current_provider()
+        current_provider = ai_manager.get_current_provider()
         if not current_provider:
             return jsonify({'error': 'Nessun provider AI configurato. Aggiungi le API keys al file .env'}), 400
 
         # Check if current provider supports vision
-        capabilities = ai_provider_manager.get_current_capabilities()
+        capabilities = ai_manager.get_current_capabilities()
         if not capabilities.get('vision_analysis'):
-            provider_name = ai_provider_manager.get_current_provider_name()
+            provider_name = ai_manager.get_current_provider_name()
             return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
         data = request.json
@@ -2809,7 +2809,7 @@ def extract_dimensions_with_context():
         # Call current provider's Vision API with enhanced prompt
         dimensions_text = current_provider.analyze_vision(enhanced_prompt, image_base64)
 
-        provider_name = ai_provider_manager.get_current_provider_name()
+        provider_name = ai_manager.get_current_provider_name()
         return jsonify({
             'success': True,
             'dimensions': dimensions_text,
@@ -2820,7 +2820,7 @@ def extract_dimensions_with_context():
         import traceback
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni con contesto: {error_details}")
-        provider_name = ai_provider_manager.get_current_provider_name()
+        provider_name = ai_manager.get_current_provider_name()
         return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
 
 

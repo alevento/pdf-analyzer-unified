@@ -1,10 +1,10 @@
 """
 AI Provider abstraction layer - supports multiple AI APIs
 Supported providers:
-- Claude (Anthropic)
-- OpenAI (GPT-4, GPT-4 Vision)
-- Google Gemini
-- Novita AI (Qwen VL)
+- Claude (Anthropic) - Claude Opus 4
+- OpenAI (GPT-4 Turbo, GPT-4 Vision)
+- Google Gemini 2.5 Pro
+- Novita AI (Qwen 3 VL 235B - Thinking)
 """
 
 import os
@@ -288,12 +288,12 @@ class GeminiProvider(AIProvider):
 
 
 class NovitaAIProvider(AIProvider):
-    """Novita AI provider (Qwen VL and other models)"""
+    """Novita AI provider (Qwen 3 VL 235B and other models)"""
 
     def __init__(self, api_key: str):
         super().__init__(api_key)
         self.client = None
-        self.base_url = "https://api.novita.ai/v3/openai"
+        self.base_url = "https://api.novita.ai/openai"
         if api_key:
             try:
                 from openai import OpenAI
@@ -309,12 +309,13 @@ class NovitaAIProvider(AIProvider):
             raise Exception("Novita AI client not initialized")
 
         response = self.client.chat.completions.create(
-            model="qwen/qwen-2-72b-instruct",
+            model="qwen/qwen3-vl-235b-a22b-thinking",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
             ],
-            max_tokens=4096
+            max_tokens=32768,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -327,7 +328,7 @@ class NovitaAIProvider(AIProvider):
             image_base64 = f"data:image/png;base64,{image_base64}"
 
         response = self.client.chat.completions.create(
-            model="meta-llama/llama-3.2-90b-vision-instruct",
+            model="qwen/qwen3-vl-235b-a22b-thinking",
             messages=[{
                 "role": "user",
                 "content": [
@@ -338,7 +339,8 @@ class NovitaAIProvider(AIProvider):
                     }
                 ]
             }],
-            max_tokens=4096
+            max_tokens=32768,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -353,9 +355,10 @@ class NovitaAIProvider(AIProvider):
                 formatted_messages.append(msg)
 
         response = self.client.chat.completions.create(
-            model="qwen/qwen-2-72b-instruct",
+            model="qwen/qwen3-vl-235b-a22b-thinking",
             messages=formatted_messages,
-            max_tokens=4096
+            max_tokens=32768,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -363,7 +366,7 @@ class NovitaAIProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "Llama 3.2 Vision (Novita AI)"
+        return "Qwen 3 VL 235B (Novita AI)"
 
     def get_capabilities(self) -> Dict[str, bool]:
         return {

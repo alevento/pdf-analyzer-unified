@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.19 (2025-10-22)
+### Modifiche
+Integrazione Qwen 3 VL 235B via Novita AI - Modello multimodale text/image/video
+
+---
+
+
 ## v0.18 (2025-10-22)
 ### Modifiche
 Download universale per tutti i tipi di estrazione (PDFPlumber, OCR, AI)

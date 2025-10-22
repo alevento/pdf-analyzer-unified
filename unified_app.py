@@ -2207,12 +2207,15 @@ def get_ai_results():
 
 def generate_excel_from_template_with_opus(template_text, extracted_data):
     """
-    Use Claude Opus to interpret template and generate Excel file
+    Use current AI provider to interpret template and generate Excel file
     """
-    if not anthropic_client and not DEMO_MODE:
-        return {'error': 'Claude Opus not configured'}
+    # Get current AI provider
+    current_provider = ai_provider_manager.get_current_provider()
 
-    # Prepare data summary for Opus
+    if not current_provider and not DEMO_MODE:
+        return {'error': 'Nessun provider AI configurato'}
+
+    # Prepare data summary
     data_summary = {
         'ocr_numbers': extracted_data.get('ocr_numbers', []),
         'pdfplumber_text_preview': extracted_data.get('pdfplumber_text', '')[:3000],  # First 3000 chars
@@ -2270,13 +2273,8 @@ Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con 
                 }
             }
 
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        response_text = message.content[0].text
+        # Use current provider's analyze_text method
+        response_text = current_provider.analyze_text(prompt, "")
 
         # Try to parse JSON from response
         try:
@@ -2287,13 +2285,16 @@ Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con 
                 response_text = response_text.split('```')[1].split('```')[0]
 
             excel_data = json.loads(response_text.strip())
-            return {'success': True, 'excel_data': excel_data}
+            provider_name = ai_provider_manager.get_current_provider_name()
+            return {'success': True, 'excel_data': excel_data, 'provider': provider_name}
 
         except json.JSONDecodeError as e:
-            return {'error': f'Invalid JSON response from Opus: {str(e)}'}
+            provider_name = ai_provider_manager.get_current_provider_name()
+            return {'error': f'Invalid JSON response from {provider_name}: {str(e)}'}
 
     except Exception as e:
-        return {'error': f'Error calling Claude Opus: {str(e)}'}
+        provider_name = ai_provider_manager.get_current_provider_name()
+        return {'error': f'Error calling {provider_name}: {str(e)}'}
 
 
 @app.route('/generate_from_template', methods=['POST'])
@@ -2721,10 +2722,18 @@ def delete_dimension_prompt(prompt_id):
 
 @app.route('/extract_dimensions', methods=['POST'])
 def extract_dimensions():
-    """Extract dimensions from PDF page using Claude Opus Vision with custom prompt"""
+    """Extract dimensions from PDF page using current AI provider Vision"""
     try:
-        if not anthropic_client:
-            return jsonify({'error': 'Claude Opus non configurato. Aggiungi ANTHROPIC_API_KEY al file .env'}), 400
+        # Use current AI provider instead of hardcoded Claude
+        current_provider = ai_provider_manager.get_current_provider()
+        if not current_provider:
+            return jsonify({'error': 'Nessun provider AI configurato. Aggiungi le API keys al file .env'}), 400
+
+        # Check if current provider supports vision
+        capabilities = ai_provider_manager.get_current_capabilities()
+        if not capabilities.get('vision_analysis'):
+            provider_name = ai_provider_manager.get_current_provider_name()
+            return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
         data = request.json
         prompt = data.get('prompt')
@@ -2733,55 +2742,38 @@ def extract_dimensions():
         if not prompt or not image_base64:
             return jsonify({'error': 'Prompt e immagine richiesti'}), 400
 
-        # Remove data URL prefix if present
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
+        # Call current provider's Vision API with custom prompt
+        dimensions_text = current_provider.analyze_vision(prompt, image_base64)
 
-        # Call Claude Opus Vision API with custom prompt
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_base64
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
-                }
-            ]
-        )
-
-        dimensions_text = message.content[0].text
-
+        provider_name = ai_provider_manager.get_current_provider_name()
         return jsonify({
             'success': True,
-            'dimensions': dimensions_text
+            'dimensions': dimensions_text,
+            'provider': provider_name
         })
 
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni: {error_details}")
-        return jsonify({'error': f'Error calling Claude Opus: {str(e)}'}), 500
+        provider_name = ai_provider_manager.get_current_provider_name()
+        return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
 
 
 @app.route('/extract_dimensions_with_context', methods=['POST'])
 def extract_dimensions_with_context():
-    """Extract dimensions from PDF page using Claude Opus Vision with custom prompt and context data"""
+    """Extract dimensions from PDF page using current AI provider Vision with custom prompt and context data"""
     try:
-        if not anthropic_client:
-            return jsonify({'error': 'Claude Opus non configurato. Aggiungi ANTHROPIC_API_KEY al file .env'}), 400
+        # Use current AI provider instead of hardcoded Claude
+        current_provider = ai_provider_manager.get_current_provider()
+        if not current_provider:
+            return jsonify({'error': 'Nessun provider AI configurato. Aggiungi le API keys al file .env'}), 400
+
+        # Check if current provider supports vision
+        capabilities = ai_provider_manager.get_current_capabilities()
+        if not capabilities.get('vision_analysis'):
+            provider_name = ai_provider_manager.get_current_provider_name()
+            return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
         data = request.json
         prompt = data.get('prompt')
@@ -2790,10 +2782,6 @@ def extract_dimensions_with_context():
 
         if not prompt or not image_base64:
             return jsonify({'error': 'Prompt e immagine richiesti'}), 400
-
-        # Remove data URL prefix if present
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
 
         # Build enhanced prompt with context
         enhanced_prompt = prompt + "\n\n"
@@ -2818,43 +2806,22 @@ def extract_dimensions_with_context():
 
         enhanced_prompt += "Usa il contesto sopra insieme all'immagine per estrarre le dimensioni richieste con maggiore accuratezza."
 
-        # Call Claude Opus Vision API with enhanced prompt
-        message = anthropic_client.messages.create(
-            model="claude-opus-4-20250514",
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_base64
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": enhanced_prompt
-                        }
-                    ]
-                }
-            ]
-        )
+        # Call current provider's Vision API with enhanced prompt
+        dimensions_text = current_provider.analyze_vision(enhanced_prompt, image_base64)
 
-        dimensions_text = message.content[0].text
-
+        provider_name = ai_provider_manager.get_current_provider_name()
         return jsonify({
             'success': True,
-            'dimensions': dimensions_text
+            'dimensions': dimensions_text,
+            'provider': provider_name
         })
 
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni con contesto: {error_details}")
-        return jsonify({'error': f'Error calling Claude Opus: {str(e)}'}), 500
+        provider_name = ai_provider_manager.get_current_provider_name()
+        return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.21 (2025-10-22)
+### Modifiche
+Estrazione dimensioni e template usano provider AI selezionato dinamicamente
+
+---
+
+
 ## v0.20 (2025-10-22)
 ### Modifiche
 Fix GPT-4 Vision deprecato - Aggiornamento a GPT-4o multimodale

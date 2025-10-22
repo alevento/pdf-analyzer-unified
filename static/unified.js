@@ -282,9 +282,9 @@ async function handleExtractPdfplumber() {
         const data = await response.json();
 
         if (data.success) {
-            // Hide download buttons for text-based pdfplumber output
-            document.getElementById('downloadButtons').style.display = 'none';
-            currentDisplayData = null;
+            // Convert PDFPlumber data to downloadable format
+            currentDisplayData = convertPdfplumberToDownloadFormat(data.data, pageNum + 1, rotation);
+            document.getElementById('downloadButtons').style.display = 'block';
 
             let output = `=== Pagina ${pageNum + 1} - Estrazione pdfplumber ===\n\n`;
             data.data.forEach(item => {
@@ -323,10 +323,6 @@ async function handleExtractOcr() {
         const data = await response.json();
 
         if (data.success) {
-            // Hide download buttons for text-based OCR output
-            document.getElementById('downloadButtons').style.display = 'none';
-            currentDisplayData = null;
-
             let totalConf = 0;
             let confCount = 0;
             data.words.forEach(word => {
@@ -336,6 +332,10 @@ async function handleExtractOcr() {
                 }
             });
             const avgConf = confCount > 0 ? (totalConf / confCount).toFixed(1) : 0;
+
+            // Convert OCR data to downloadable format
+            currentDisplayData = convertOcrToDownloadFormat(data.words, data.text, pageNum + 1, psmMode, avgConf);
+            document.getElementById('downloadButtons').style.display = 'block';
 
             let output = `=== Pagina ${pageNum + 1} - Estrazione OCR (PSM ${psmMode}) ===\n`;
             output += `Confidenza media: ${avgConf}%\n`;
@@ -1201,6 +1201,69 @@ function convertQAToDownloadFormat(question, answer, providerName) {
         confidence: 100,
         source: 'ai_qa',
         provider: providerName
+    });
+
+    return items;
+}
+
+function convertPdfplumberToDownloadFormat(data, pageNum, rotation) {
+    // Convert PDFPlumber extraction to downloadable format
+    const items = [];
+
+    data.forEach((item, index) => {
+        items.push({
+            id: index,
+            text: item.text,
+            type: 'pdfplumber_text',
+            confidence: 100, // PDFPlumber extracts native text, so 100% confidence
+            source: 'pdfplumber',
+            page: pageNum,
+            rotation: rotation,
+            position: {
+                x0: item.x0.toFixed(2),
+                y0: item.y0.toFixed(2),
+                x1: item.x1.toFixed(2),
+                y1: item.y1.toFixed(2)
+            },
+            dimensions: {
+                width: item.width.toFixed(2),
+                height: item.height.toFixed(2)
+            }
+        });
+    });
+
+    return items;
+}
+
+function convertOcrToDownloadFormat(words, fullText, pageNum, psmMode, avgConf) {
+    // Convert OCR extraction to downloadable format
+    const items = [];
+
+    // Add full text as first item
+    items.push({
+        id: 0,
+        text: fullText,
+        type: 'ocr_full_text',
+        confidence: parseFloat(avgConf),
+        source: 'ocr_standard',
+        page: pageNum,
+        psm_mode: psmMode,
+        word_count: words.length
+    });
+
+    // Add individual words with confidence
+    words.forEach((word, index) => {
+        if (word.text && word.text.trim()) {
+            items.push({
+                id: index + 1,
+                text: word.text,
+                type: 'ocr_word',
+                confidence: word.conf >= 0 ? word.conf : 0,
+                source: 'ocr_standard',
+                page: pageNum,
+                psm_mode: psmMode
+            });
+        }
     });
 
     return items;

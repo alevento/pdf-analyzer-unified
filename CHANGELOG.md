@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.18 (2025-10-22)
+### Modifiche
+Download universale per tutti i tipi di estrazione (PDFPlumber, OCR, AI)
+
+---
+
+
 ## v0.17 (2025-10-22)
 ### Modifiche
 Sistema di versioning automatico con commit GitHub integrato

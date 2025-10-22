@@ -1,7 +1,8 @@
 """
 AI Provider abstraction layer - supports multiple AI APIs
 Supported providers:
-- Claude (Anthropic) - Claude Opus 4
+- Claude Opus 4.1 (Anthropic) - Most capable model (20250805)
+- Claude Sonnet 4.5 (Anthropic) - Best for coding and complex agents (20250929)
 - OpenAI - GPT-4o (unified text + vision model)
 - Google Gemini 2.5 Pro
 - Novita AI (Qwen 3 VL 235B - Thinking)
@@ -67,7 +68,7 @@ class ClaudeProvider(AIProvider):
             raise Exception("Claude client not initialized")
 
         message = self.client.messages.create(
-            model="claude-opus-4-20250514",
+            model="claude-opus-4-1-20250805",
             max_tokens=4096,
             messages=[{
                 "role": "user",
@@ -85,7 +86,7 @@ class ClaudeProvider(AIProvider):
             image_base64 = image_base64.split(',')[1]
 
         message = self.client.messages.create(
-            model="claude-opus-4-20250514",
+            model="claude-opus-4-1-20250805",
             max_tokens=4096,
             messages=[{
                 "role": "user",
@@ -112,7 +113,7 @@ class ClaudeProvider(AIProvider):
             raise Exception("Claude client not initialized")
 
         message = self.client.messages.create(
-            model="claude-opus-4-20250514",
+            model="claude-opus-4-1-20250805",
             max_tokens=4096,
             messages=messages
         )
@@ -122,7 +123,91 @@ class ClaudeProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "Claude Opus 4"
+        return "Claude Opus 4.1"
+
+    def get_capabilities(self) -> Dict[str, bool]:
+        return {
+            "text_analysis": True,
+            "vision_analysis": True,
+            "chat": True,
+            "dimension_extraction": True
+        }
+
+
+class ClaudeSonnetProvider(AIProvider):
+    """Claude Sonnet 4.5 (Anthropic) provider - Best for coding and complex agents"""
+
+    def __init__(self, api_key: str):
+        super().__init__(api_key)
+        self.client = None
+        if api_key:
+            try:
+                from anthropic import Anthropic
+                self.client = Anthropic(api_key=api_key)
+            except ImportError:
+                print("Warning: anthropic package not installed")
+
+    def analyze_text(self, prompt: str, text: str) -> str:
+        if not self.client:
+            raise Exception("Claude Sonnet client not initialized")
+
+        message = self.client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=4096,
+            messages=[{
+                "role": "user",
+                "content": f"{prompt}\n\n{text}"
+            }]
+        )
+        return message.content[0].text
+
+    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+        if not self.client:
+            raise Exception("Claude Sonnet client not initialized")
+
+        # Remove data URL prefix if present
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+
+        message = self.client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=4096,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": image_base64
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ]
+            }]
+        )
+        return message.content[0].text
+
+    def chat(self, messages: list) -> str:
+        if not self.client:
+            raise Exception("Claude Sonnet client not initialized")
+
+        message = self.client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=4096,
+            messages=messages
+        )
+        return message.content[0].text
+
+    def is_available(self) -> bool:
+        return self.client is not None
+
+    def get_name(self) -> str:
+        return "Claude Sonnet 4.5"
 
     def get_capabilities(self) -> Dict[str, bool]:
         return {
@@ -297,9 +382,11 @@ class NovitaAIProvider(AIProvider):
         if api_key:
             try:
                 from openai import OpenAI
+                # Novita AI can be slow, set higher timeout (5 minutes)
                 self.client = OpenAI(
                     api_key=api_key,
-                    base_url=self.base_url
+                    base_url=self.base_url,
+                    timeout=300.0  # 5 minutes timeout for heavy vision tasks
                 )
             except ImportError:
                 print("Warning: openai package not installed")
@@ -315,7 +402,13 @@ class NovitaAIProvider(AIProvider):
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
             ],
             max_tokens=32768,
-            temperature=0.7
+            temperature=0.6,
+            top_p=0.95,
+            extra_body={
+                "enable_thinking": True,
+                "top_k": 20,
+                "min_p": 0
+            }
         )
         return response.choices[0].message.content
 
@@ -340,7 +433,13 @@ class NovitaAIProvider(AIProvider):
                 ]
             }],
             max_tokens=32768,
-            temperature=0.7
+            temperature=0.6,
+            top_p=0.95,
+            extra_body={
+                "enable_thinking": True,
+                "top_k": 20,
+                "min_p": 0
+            }
         )
         return response.choices[0].message.content
 
@@ -358,7 +457,13 @@ class NovitaAIProvider(AIProvider):
             model="qwen/qwen3-vl-235b-a22b-thinking",
             messages=formatted_messages,
             max_tokens=32768,
-            temperature=0.7
+            temperature=0.6,
+            top_p=0.95,
+            extra_body={
+                "enable_thinking": True,
+                "top_k": 20,
+                "min_p": 0
+            }
         )
         return response.choices[0].message.content
 
@@ -390,12 +495,18 @@ class AIProviderManager:
         from dotenv import load_dotenv
         load_dotenv()
 
-        # Claude
+        # Claude Opus 4.1
         anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
         if anthropic_key:
             self.providers['claude'] = ClaudeProvider(anthropic_key)
             if self.current_provider is None:
                 self.current_provider = 'claude'
+
+        # Claude Sonnet 4.5
+        if anthropic_key:
+            self.providers['claude-sonnet'] = ClaudeSonnetProvider(anthropic_key)
+            if self.current_provider is None:
+                self.current_provider = 'claude-sonnet'
 
         # OpenAI
         openai_key = os.environ.get('OPENAI_API_KEY', '')

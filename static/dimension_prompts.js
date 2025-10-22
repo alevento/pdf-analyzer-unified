@@ -4,6 +4,7 @@
 
 let currentDimensionPrompt = null;
 let currentExtractedDimensions = null; // Store extracted dimensions for download
+let currentProviderName = null; // Store provider name for download metadata
 
 // Add event listeners for dimension prompt functionality in DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -56,9 +57,11 @@ async function extractDimensions() {
     const extractBtn = document.getElementById('extractDimensionsBtn');
     const textList = document.getElementById('textList');
 
+    const providerName = document.getElementById('aiProviderSelect')?.selectedOptions[0]?.text || 'AI';
+
     extractBtn.disabled = true;
     dimensionStatus.textContent = '⏳ Estrazione in corso...';
-    textList.innerHTML = '<div class="ai-loading">📐 Estrazione dimensioni con Claude Opus...</div>';
+    textList.innerHTML = `<div class="ai-loading">📐 Estrazione dimensioni con ${providerName}...</div>`;
 
     // Hide download buttons for dimension extraction (text-based)
     document.getElementById('downloadButtons').style.display = 'none';
@@ -81,12 +84,14 @@ async function extractDimensions() {
             dimensionStatus.textContent = '❌ Errore estrazione';
             currentExtractedDimensions = null;
         } else if (data.success && data.dimensions) {
-            // Store extracted dimensions for download
+            // Store extracted dimensions and provider name for download
             currentExtractedDimensions = data.dimensions;
+            const resultProviderName = data.provider || providerName;
+            currentProviderName = resultProviderName;
 
             textList.innerHTML = `
                 <div class="ai-result">
-                    <h3>📐 Dimensioni Estratte</h3>
+                    <h3>📐 Dimensioni Estratte ${resultProviderName}</h3>
                     <div class="ai-result-item">
                         <pre>${escapeHtml(data.dimensions)}</pre>
                     </div>
@@ -366,7 +371,10 @@ function downloadExtractedDimensions() {
         fileContent += `\n${'='.repeat(60)}\n\n`;
         fileContent += currentExtractedDimensions;
         fileContent += `\n\n${'='.repeat(60)}\n`;
-        fileContent += `\nEstrazione effettuata con Claude Opus Vision API\n`;
+
+        // Add provider info if available
+        const providerInfo = currentProviderName || 'AI Provider';
+        fileContent += `\nEstrazione effettuata con ${providerInfo}\n`;
 
         // Create and download the file
         const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });

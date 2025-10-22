@@ -1389,8 +1389,9 @@ async function generateFromTemplate() {
             allData.dimensions = dimensionsData;
         }
 
-        // Step 4: Generate file with Opus
-        updateProgress(90, 'Elaborazione con Claude Opus', 'Generazione file Excel...');
+        // Step 4: Generate file with current AI provider
+        const providerName = document.getElementById('aiProviderSelect')?.selectedOptions[0]?.text || 'AI';
+        updateProgress(90, `Elaborazione con ${providerName}`, 'Generazione file Excel...');
 
         const response = await fetch('/generate_from_template', {
             method: 'POST',
@@ -1795,7 +1796,8 @@ async function analyzeEntirePDF() {
 
         // Step 3: AI Analysis (if selected)
         if (useAIAnalysis) {
-            updateProgress(currentProgress, 'Analisi AI', 'Claude Opus sta analizzando i dati...');
+            const providerName = document.getElementById('aiProviderSelect')?.selectedOptions[0]?.text || 'AI';
+            updateProgress(currentProgress, 'Analisi AI', `${providerName} sta analizzando i dati...`);
             await fetch('/opus/analyze', { method: 'POST' });
             completedSteps++;
             currentProgress = 10 + (completedSteps / totalSteps) * 60;
@@ -2046,6 +2048,11 @@ async function switchAIProvider() {
             if (data.capabilities) {
                 updateButtonsBasedOnCapabilities(data.capabilities);
             }
+            // Update ask button text with current provider name
+            const askBtnText = document.getElementById('askBtnText');
+            if (askBtnText) {
+                askBtnText.textContent = `Chiedi a ${data.provider_name}`;
+            }
         }
     } catch (error) {
         console.error('Error switching AI provider:', error);
@@ -2064,6 +2071,11 @@ async function checkAIStatus() {
             // Update button visibility based on capabilities
             if (data.capabilities) {
                 updateButtonsBasedOnCapabilities(data.capabilities);
+            }
+            // Update ask button text with current provider name
+            const askBtnText = document.getElementById('askBtnText');
+            if (askBtnText && data.provider_name) {
+                askBtnText.textContent = `Chiedi a ${data.provider_name}`;
             }
         } else {
             opusStatus.style.backgroundColor = '#fff3cd';

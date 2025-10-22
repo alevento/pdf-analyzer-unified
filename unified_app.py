@@ -2313,7 +2313,7 @@ def generate_from_template():
         if not extracted_data:
             return jsonify({'error': 'Dati estratti non disponibili'}), 400
 
-        # Use Opus to interpret template and generate structure
+        # Use current AI provider to interpret template and generate structure
         result = generate_excel_from_template_with_opus(template, extracted_data)
 
         if 'error' in result:
@@ -2757,7 +2757,7 @@ def extract_dimensions():
             if all_numbers:
                 context += f"Numeri identificati: {', '.join(map(str, all_numbers))}\n\n"
 
-            # Use text API for Claude Opus (no vision needed)
+            # Use text API for Claude models (cost optimization - no vision needed)
             dimensions_text = current_provider.analyze_text(prompt, context)
         else:
             # For other providers, use vision API

@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.28 (2025-10-22)
+### Modifiche
+Messaggi e commenti ora usano provider AI selezionato invece di riferimenti hardcoded a Claude Opus
+
+---
+
+
 ## v0.27 (2025-10-22)
 ### Modifiche
 Aggiunto Claude Sonnet 4.5 come provider separato - Best for coding and complex agents

@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.31 (2025-10-22)
+### Modifiche
+Abilitata modalità Thinking per Qwen 3 VL 235B: enable_thinking=True con parametri ottimizzati (temp=0.6, top_p=0.95) per ragionamento avanzato
+
+---
+
+
 ## v0.30 (2025-10-22)
 ### Modifiche
 Migliorata gestione timeout Novita AI: timeout aumentato a 5 minuti e messaggi di errore più chiari con suggerimenti

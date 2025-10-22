@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.23 (2025-10-22)
+### Modifiche
+Estrazione dimensioni ora mostra provider AI selezionato invece di Claude Opus hardcoded
+
+---
+
+
 ## v0.22 (2025-10-22)
 ### Modifiche
 Fix NameError ai_provider_manager + UI miglioramenti AI Analysis

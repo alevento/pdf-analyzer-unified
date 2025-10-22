@@ -2738,37 +2738,15 @@ def extract_dimensions():
 
         provider_name = ai_manager.get_current_provider_name()
 
-        # For Claude models, use text API instead of vision API (cost optimization)
-        if ai_manager.current_provider in ['claude', 'claude-sonnet']:
-            # Load extracted text data
-            results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
-            if not os.path.exists(results_path):
-                return jsonify({'error': 'Nessun testo estratto disponibile. Esegui prima un\'estrazione OCR o PDFPlumber'}), 400
+        # Use vision API for all providers (better accuracy for dimension detection)
+        if not image_base64:
+            return jsonify({'error': 'Immagine richiesta per l\'estrazione dimensioni'}), 400
 
-            with open(results_path, 'r', encoding='utf-8') as f:
-                results = json.load(f)
+        capabilities = ai_manager.get_current_capabilities()
+        if not capabilities.get('vision_analysis'):
+            return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
-            # Get all extracted text
-            all_text = results.get('full_text', '')
-            all_numbers = results.get('all_numbers', [])
-
-            # Prepare context for Claude
-            context = f"Testo estratto dal documento:\n\n{all_text}\n\n"
-            if all_numbers:
-                context += f"Numeri identificati: {', '.join(map(str, all_numbers))}\n\n"
-
-            # Use text API for Claude models (cost optimization - no vision needed)
-            dimensions_text = current_provider.analyze_text(prompt, context)
-        else:
-            # For other providers, use vision API
-            if not image_base64:
-                return jsonify({'error': 'Immagine richiesta per questo provider AI'}), 400
-
-            capabilities = ai_manager.get_current_capabilities()
-            if not capabilities.get('vision_analysis'):
-                return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
-
-            dimensions_text = current_provider.analyze_vision(prompt, image_base64)
+        dimensions_text = current_provider.analyze_vision(prompt, image_base64)
 
         return jsonify({
             'success': True,
@@ -2824,21 +2802,16 @@ def extract_dimensions_with_context():
             enhanced_prompt += json.dumps(context['ai_summary'], ensure_ascii=False, indent=2)[:5000]
             enhanced_prompt += "\n\n"
 
-        # For Claude models, use text API instead of vision API (cost optimization)
-        if ai_manager.current_provider in ['claude', 'claude-sonnet']:
-            # Use text API for Claude with the context
-            dimensions_text = current_provider.analyze_text(enhanced_prompt, "")
-        else:
-            # For other providers, use vision API
-            if not image_base64:
-                return jsonify({'error': 'Immagine richiesta per questo provider AI'}), 400
+        # Use vision API for all providers (better accuracy for dimension detection)
+        if not image_base64:
+            return jsonify({'error': 'Immagine richiesta per l\'estrazione dimensioni'}), 400
 
-            capabilities = ai_manager.get_current_capabilities()
-            if not capabilities.get('vision_analysis'):
-                return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
+        capabilities = ai_manager.get_current_capabilities()
+        if not capabilities.get('vision_analysis'):
+            return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
 
-            enhanced_prompt += "Usa il contesto sopra insieme all'immagine per estrarre le dimensioni richieste con maggiore accuratezza."
-            dimensions_text = current_provider.analyze_vision(enhanced_prompt, image_base64)
+        enhanced_prompt += "Usa il contesto sopra insieme all'immagine per estrarre le dimensioni richieste con maggiore accuratezza."
+        dimensions_text = current_provider.analyze_vision(enhanced_prompt, image_base64)
 
         return jsonify({
             'success': True,

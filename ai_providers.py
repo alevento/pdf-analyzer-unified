@@ -330,9 +330,9 @@ class GeminiProvider(AIProvider):
 
         import google.generativeai as genai
         generation_config = genai.GenerationConfig(
-            temperature=0.7,
-            top_p=0.95,
-            top_k=40,
+            temperature=0.2,
+            top_p=0.9,
+            top_k=20,
             max_output_tokens=8192,
         )
 
@@ -360,9 +360,9 @@ class GeminiProvider(AIProvider):
         image = Image.open(io.BytesIO(image_data))
 
         generation_config = genai.GenerationConfig(
-            temperature=0.7,
-            top_p=0.95,
-            top_k=40,
+            temperature=0.2,
+            top_p=0.9,
+            top_k=20,
             max_output_tokens=8192,
         )
 
@@ -388,9 +388,9 @@ class GeminiProvider(AIProvider):
                     chat_text += f"{role}: {content}\n\n"
 
         generation_config = genai.GenerationConfig(
-            temperature=0.7,
-            top_p=0.95,
-            top_k=40,
+            temperature=0.2,
+            top_p=0.9,
+            top_k=20,
             max_output_tokens=8192,
         )
 

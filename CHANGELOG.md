@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.25 (2025-10-22)
+### Modifiche
+Fix: Ripristinato modello Claude Opus 4 (4.1 non esiste) - Mantenuta ottimizzazione Text API
+
+---
+
+
 ## v0.24 (2025-10-22)
 ### Modifiche
 Aggiornato Claude Opus 4 a 4.1 + estrazione dimensioni usa Text API invece di Vision per ottimizzazione costi

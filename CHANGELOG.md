@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.30 (2025-10-22)
+### Modifiche
+Migliorata gestione timeout Novita AI: timeout aumentato a 5 minuti e messaggi di errore più chiari con suggerimenti
+
+---
+
+
 ## v0.29 (2025-10-22)
 ### Modifiche
 Estrazione dimensioni ora usa Vision API per tutti i provider (Claude incluso) per maggiore accuratezza nel rilevamento

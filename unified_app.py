@@ -2759,7 +2759,19 @@ def extract_dimensions():
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni: {error_details}")
         provider_name = ai_manager.get_current_provider_name()
-        return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
+
+        # Provide helpful message for timeout errors
+        error_message = str(e)
+        if '524' in error_message or 'timeout' in error_message.lower():
+            if 'novita' in provider_name.lower():
+                return jsonify({
+                    'error': f'{provider_name} timeout: Il server ha impiegato troppo tempo a processare l\'immagine. '
+                             'Suggerimento: prova con Claude Opus 4.1, Claude Sonnet 4.5, o GPT-4o per immagini complesse.'
+                }), 500
+            else:
+                return jsonify({'error': f'{provider_name} timeout: Richiesta troppo lunga, riprova o usa un altro provider'}), 500
+
+        return jsonify({'error': f'Error calling {provider_name}: {error_message}'}), 500
 
 
 @app.route('/extract_dimensions_with_context', methods=['POST'])
@@ -2824,7 +2836,19 @@ def extract_dimensions_with_context():
         error_details = traceback.format_exc()
         print(f"Errore estrazione dimensioni con contesto: {error_details}")
         provider_name = ai_manager.get_current_provider_name()
-        return jsonify({'error': f'Error calling {provider_name}: {str(e)}'}), 500
+
+        # Provide helpful message for timeout errors
+        error_message = str(e)
+        if '524' in error_message or 'timeout' in error_message.lower():
+            if 'novita' in provider_name.lower():
+                return jsonify({
+                    'error': f'{provider_name} timeout: Il server ha impiegato troppo tempo a processare l\'immagine. '
+                             'Suggerimento: prova con Claude Opus 4.1, Claude Sonnet 4.5, o GPT-4o per immagini complesse.'
+                }), 500
+            else:
+                return jsonify({'error': f'{provider_name} timeout: Richiesta troppo lunga, riprova o usa un altro provider'}), 500
+
+        return jsonify({'error': f'Error calling {provider_name}: {error_message}'}), 500
 
 
 if __name__ == '__main__':

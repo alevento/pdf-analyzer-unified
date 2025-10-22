@@ -1,6 +1,13 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.20 (2025-10-22)
+### Modifiche
+Fix GPT-4 Vision deprecato - Aggiornamento a GPT-4o multimodale
+
+---
+
+
 ## v0.19 (2025-10-22)
 ### Modifiche
 Integrazione Qwen 3 VL 235B via Novita AI - Modello multimodale text/image/video

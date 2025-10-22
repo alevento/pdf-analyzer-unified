@@ -2,7 +2,7 @@
 AI Provider abstraction layer - supports multiple AI APIs
 Supported providers:
 - Claude (Anthropic) - Claude Opus 4
-- OpenAI (GPT-4 Turbo, GPT-4 Vision)
+- OpenAI - GPT-4o (unified text + vision model)
 - Google Gemini 2.5 Pro
 - Novita AI (Qwen 3 VL 235B - Thinking)
 """
@@ -134,7 +134,7 @@ class ClaudeProvider(AIProvider):
 
 
 class OpenAIProvider(AIProvider):
-    """OpenAI (GPT-4) provider"""
+    """OpenAI (GPT-4o) provider"""
 
     def __init__(self, api_key: str):
         super().__init__(api_key)
@@ -151,7 +151,7 @@ class OpenAIProvider(AIProvider):
             raise Exception("OpenAI client not initialized")
 
         response = self.client.chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
@@ -169,7 +169,7 @@ class OpenAIProvider(AIProvider):
             image_base64 = f"data:image/png;base64,{image_base64}"
 
         response = self.client.chat.completions.create(
-            model="gpt-4-vision-preview",
+            model="gpt-4o",
             messages=[{
                 "role": "user",
                 "content": [
@@ -195,7 +195,7 @@ class OpenAIProvider(AIProvider):
                 formatted_messages.append(msg)
 
         response = self.client.chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model="gpt-4o",
             messages=formatted_messages,
             max_tokens=4096
         )
@@ -205,7 +205,7 @@ class OpenAIProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "GPT-4 Turbo"
+        return "GPT-4o"
 
     def get_capabilities(self) -> Dict[str, bool]:
         return {

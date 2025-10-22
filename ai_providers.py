@@ -70,6 +70,7 @@ class ClaudeProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-opus-4-1-20250805",
             max_tokens=4096,
+            temperature=1.0,
             messages=[{
                 "role": "user",
                 "content": f"{prompt}\n\n{text}"
@@ -88,6 +89,7 @@ class ClaudeProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-opus-4-1-20250805",
             max_tokens=4096,
+            temperature=1.0,
             messages=[{
                 "role": "user",
                 "content": [
@@ -115,6 +117,7 @@ class ClaudeProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-opus-4-1-20250805",
             max_tokens=4096,
+            temperature=1.0,
             messages=messages
         )
         return message.content[0].text
@@ -154,6 +157,7 @@ class ClaudeSonnetProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=4096,
+            temperature=1.0,
             messages=[{
                 "role": "user",
                 "content": f"{prompt}\n\n{text}"
@@ -172,6 +176,7 @@ class ClaudeSonnetProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=4096,
+            temperature=1.0,
             messages=[{
                 "role": "user",
                 "content": [
@@ -199,6 +204,7 @@ class ClaudeSonnetProvider(AIProvider):
         message = self.client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=4096,
+            temperature=1.0,
             messages=messages
         )
         return message.content[0].text
@@ -241,7 +247,8 @@ class OpenAIProvider(AIProvider):
                 {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
             ],
-            max_tokens=4096
+            max_tokens=4096,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -265,7 +272,8 @@ class OpenAIProvider(AIProvider):
                     }
                 ]
             }],
-            max_tokens=4096
+            max_tokens=4096,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -282,7 +290,8 @@ class OpenAIProvider(AIProvider):
         response = self.client.chat.completions.create(
             model="gpt-4o",
             messages=formatted_messages,
-            max_tokens=4096
+            max_tokens=4096,
+            temperature=0.7
         )
         return response.choices[0].message.content
 
@@ -319,7 +328,18 @@ class GeminiProvider(AIProvider):
         if not self.client:
             raise Exception("Gemini client not initialized")
 
-        response = self.client.generate_content(f"{prompt}\n\n{text}")
+        import google.generativeai as genai
+        generation_config = genai.GenerationConfig(
+            temperature=0.7,
+            top_p=0.95,
+            top_k=40,
+            max_output_tokens=8192,
+        )
+
+        response = self.client.generate_content(
+            f"{prompt}\n\n{text}",
+            generation_config=generation_config
+        )
         return response.text
 
     def analyze_vision(self, prompt: str, image_base64: str) -> str:
@@ -329,6 +349,7 @@ class GeminiProvider(AIProvider):
         import base64
         from PIL import Image
         import io
+        import google.generativeai as genai
 
         # Remove data URL prefix if present
         if ',' in image_base64:
@@ -338,12 +359,24 @@ class GeminiProvider(AIProvider):
         image_data = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_data))
 
-        response = self.client.generate_content([prompt, image])
+        generation_config = genai.GenerationConfig(
+            temperature=0.7,
+            top_p=0.95,
+            top_k=40,
+            max_output_tokens=8192,
+        )
+
+        response = self.client.generate_content(
+            [prompt, image],
+            generation_config=generation_config
+        )
         return response.text
 
     def chat(self, messages: list) -> str:
         if not self.client:
             raise Exception("Gemini client not initialized")
+
+        import google.generativeai as genai
 
         # Convert messages to Gemini format
         chat_text = ""
@@ -354,7 +387,17 @@ class GeminiProvider(AIProvider):
                 if isinstance(content, str):
                     chat_text += f"{role}: {content}\n\n"
 
-        response = self.client.generate_content(chat_text)
+        generation_config = genai.GenerationConfig(
+            temperature=0.7,
+            top_p=0.95,
+            top_k=40,
+            max_output_tokens=8192,
+        )
+
+        response = self.client.generate_content(
+            chat_text,
+            generation_config=generation_config
+        )
         return response.text
 
     def is_available(self) -> bool:

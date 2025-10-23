@@ -1,6 +1,24 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.35 (2025-10-22)
+### Aggiornamento
+Aggiornato OpenAI da GPT-4o a GPT-4.1 (modello più recente con vision potenziata per disegni tecnici)
+
+### Dettagli tecnici
+- Modello API: gpt-4o → gpt-4.1-2025-04-14
+- Nome provider UI: GPT-4o → GPT-4.1
+- Rilasciato: 14 aprile 2025
+- Migliori capacità vision per matematica, grafici, diagrammi (benchmark MMMU, MathVista, CharXiv)
+- Supporto fino a 1M token di contesto
+- Miglior instruction following per prompt personalizzati
+
+### File modificati
+- ai_providers.py: Aggiornato OpenAIProvider con nuovo modello e descrizione
+
+---
+
+
 ## v0.34 (2025-10-22)
 ### Fix
 Fix provider dinamico estrazione dimensioni: ora mostra il provider AI effettivamente usato (non più hardcoded Opus)

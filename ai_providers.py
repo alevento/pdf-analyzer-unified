@@ -3,7 +3,7 @@ AI Provider abstraction layer - supports multiple AI APIs
 Supported providers:
 - Claude Opus 4.1 (Anthropic) - Most capable model (20250805)
 - Claude Sonnet 4.5 (Anthropic) - Best for coding and complex agents (20250929)
-- OpenAI - GPT-4o (unified text + vision model)
+- OpenAI - GPT-4.1 (latest model with enhanced vision for technical drawings - 20250414)
 - Google Gemini 2.5 Pro
 - Novita AI (Qwen 3 VL 235B - Thinking)
 """
@@ -225,7 +225,7 @@ class ClaudeSonnetProvider(AIProvider):
 
 
 class OpenAIProvider(AIProvider):
-    """OpenAI (GPT-4o) provider"""
+    """OpenAI (GPT-4.1) provider - Latest model with enhanced vision for technical drawings"""
 
     def __init__(self, api_key: str):
         super().__init__(api_key)
@@ -242,7 +242,7 @@ class OpenAIProvider(AIProvider):
             raise Exception("OpenAI client not initialized")
 
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-2025-04-14",
             messages=[
                 {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
@@ -261,7 +261,7 @@ class OpenAIProvider(AIProvider):
             image_base64 = f"data:image/png;base64,{image_base64}"
 
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-2025-04-14",
             messages=[{
                 "role": "user",
                 "content": [
@@ -288,7 +288,7 @@ class OpenAIProvider(AIProvider):
                 formatted_messages.append(msg)
 
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-2025-04-14",
             messages=formatted_messages,
             max_tokens=4096,
             temperature=0.7
@@ -299,7 +299,7 @@ class OpenAIProvider(AIProvider):
         return self.client is not None
 
     def get_name(self) -> str:
-        return "GPT-4o"
+        return "GPT-4.1"
 
     def get_capabilities(self) -> Dict[str, bool]:
         return {

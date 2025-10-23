@@ -2225,8 +2225,24 @@ def generate_excel_from_template_with_opus(template_text, extracted_data):
 
     # Add dimensions if available
     dimensions_data = extracted_data.get('dimensions')
+    dimensions_provider = None
     if dimensions_data:
-        data_summary['dimensions'] = dimensions_data
+        # Check if dimensions contains provider info
+        if isinstance(dimensions_data, dict) and 'text' in dimensions_data:
+            data_summary['dimensions'] = dimensions_data['text']
+            dimensions_provider = dimensions_data.get('provider')
+        else:
+            data_summary['dimensions'] = dimensions_data
+
+    # Build dimension notice for prompt
+    dimension_notice = ""
+    dimension_note_hint = ""
+    if dimensions_data:
+        if dimensions_provider:
+            dimension_notice = f"IMPORTANTE: Sono disponibili dimensioni estratte dal disegno con {dimensions_provider}. Usa questi dati per popolare i campi di dimensione nel template."
+            dimension_note_hint = f" - Dimensioni estratte con {dimensions_provider}"
+        else:
+            dimension_notice = "IMPORTANTE: Sono disponibili dimensioni estratte dal disegno. Usa questi dati per popolare i campi di dimensione nel template."
 
     prompt = f"""Hai ricevuto un template per creare un file Excel/CSV e dei dati estratti da un PDF.
 
@@ -2241,7 +2257,7 @@ Il tuo compito è:
 2. Mappare i dati estratti (numeri OCR, testo pdfplumber, analisi AI, dimensioni se presenti) ai campi del template
 3. Generare una struttura dati JSON che rappresenti il foglio Excel da creare
 
-{"IMPORTANTE: Sono disponibili dimensioni estratte dal disegno. Usa questi dati per popolare i campi di dimensione nel template." if dimensions_data else ""}
+{dimension_notice}
 
 Rispondi SOLO con un JSON in questo formato:
 {{
@@ -2252,7 +2268,7 @@ Rispondi SOLO con un JSON in questo formato:
     ["valore4", "valore5", "valore6", ...],
     ...
   ],
-  "notes": "Note opzionali su come sono stati mappati i dati"
+  "notes": "Note opzionali su come sono stati mappati i dati{dimension_note_hint}"
 }}
 
 Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con una nota esplicativa."""

@@ -1974,7 +1974,11 @@ async function extractDimensionsForTemplate(dimensionPromptId) {
         const extractData = await extractResponse.json();
 
         if (extractData.success && extractData.dimensions) {
-            return extractData.dimensions;
+            // Return both dimensions and provider name
+            return {
+                text: extractData.dimensions,
+                provider: extractData.provider
+            };
         } else {
             console.error('Failed to extract dimensions:', extractData.error);
             return null;

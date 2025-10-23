@@ -1,6 +1,18 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.34 (2025-10-22)
+### Fix
+Fix provider dinamico estrazione dimensioni: ora mostra il provider AI effettivamente usato (non più hardcoded Opus)
+
+### Dettagli tecnici
+- Frontend: extractDimensionsForTemplate ora ritorna {text, provider} invece di solo text
+- Backend: generate_excel_from_template_with_opus estrae provider name e lo include nel prompt e nelle note
+- Template Excel generato ora mostra correttamente "Dimensioni estratte con [Provider Selezionato]"
+
+---
+
+
 ## v0.33 (2025-10-22)
 ### Modifiche
 Ripristinati parametri precedenti Gemini: temp=0.7, top_p=0.95, top_k=40 (mantenuta gestione errori finish_reason)

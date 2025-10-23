@@ -1368,9 +1368,21 @@ async function generateFromTemplate() {
 
         let dimensionsData = null;
         if (dimensionPromptId) {
-            // Extract dimensions using the selected prompt
-            updateProgress(75, 'Estrazione dimensioni', 'Analisi dimensioni con AI...');
-            dimensionsData = await extractDimensionsForTemplate(dimensionPromptId);
+            // Check if dimensions are already cached (from previous extraction)
+            if (typeof currentExtractedDimensions !== 'undefined' && currentExtractedDimensions) {
+                updateProgress(75, 'Riutilizzo dimensioni', 'Uso dimensioni già estratte (nessun token consumato)...');
+                console.log('Using cached dimensions, no API call needed');
+
+                // Reuse cached dimensions with provider name
+                dimensionsData = {
+                    text: currentExtractedDimensions,
+                    provider: typeof currentProviderName !== 'undefined' ? currentProviderName : 'AI'
+                };
+            } else {
+                // Extract dimensions using the selected prompt
+                updateProgress(75, 'Estrazione dimensioni', 'Analisi dimensioni con AI...');
+                dimensionsData = await extractDimensionsForTemplate(dimensionPromptId);
+            }
         }
 
         // Step 3: Collect all extracted data

@@ -1,6 +1,33 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.37 (2025-10-22)
+### Ottimizzazione
+Sistema cache per dimensioni estratte: riutilizzo automatico in generazione template senza consumare token API
+
+### Funzionalità
+Se l'estrazione dimensioni è già stata eseguita manualmente (tab "Estrazione Dimensioni"):
+- La generazione template riutilizza automaticamente quei dati
+- Nessuna chiamata API aggiuntiva
+- Nessun consumo di token
+- Messaggio chiaro: "Riutilizzo dimensioni - Uso dimensioni già estratte (nessun token consumato)"
+
+### Flusso ottimizzato
+1. Utente estrae dimensioni manualmente → dati salvati in `currentExtractedDimensions`
+2. Utente genera template con stesso file → sistema rileva cache e riusa dati
+3. Risparmio: 1 chiamata API vision + token risparmiati
+
+### Dettagli tecnici
+- unified.js: generateFromTemplate() controlla `currentExtractedDimensions` prima di chiamare API
+- Se presente: riutilizzo immediato con provider name originale
+- Se assente: estrazione normale con API
+
+### File modificati
+- static/unified.js: Aggiunto controllo cache in generateFromTemplate()
+
+---
+
+
 ## v0.36 (2025-10-22)
 ### Modifiche
 Parametri Gemini impostati su valori estremamente deterministici per output ripetibili e consistenti

@@ -1,6 +1,40 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.39 (2025-10-22)
+### Nuova funzionalità
+Sistema retry automatico con temperatura aumentata per errori safety nella generazione template
+
+### Funzionamento
+Se durante la generazione template si verifica un errore safety (temperatura troppo bassa):
+1. Sistema rileva automaticamente l'errore (parole chiave: safety, finish_reason, blocked, recitation)
+2. Riprova immediatamente con temperatura aumentata di 0.1
+3. Non modifica i valori salvati permanentemente
+4. Log nel terminale: "Safety error detected, retrying with increased temperature (+0.1)..."
+
+### Temperature retry per provider
+- **Gemini**: 0.0 → 0.1 (retry temporaneo)
+- **Claude Opus/Sonnet**: 1.0 → 1.1 (capped a 1.0 dall'API)
+- **GPT-4.1**: 0.7 → 0.8 (retry temporaneo)
+- **Qwen (Novita)**: 0.6 → 0.7 (retry temporaneo)
+
+### Vantaggi
+- Nessun intervento manuale richiesto
+- Valori configurati rimangono invariati
+- Successo automatico in caso di safety block
+- Esperienza utente fluida (retry trasparente)
+
+### Implementazione
+- unified_app.py: Nuova funzione retry_with_increased_temperature()
+- unified_app.py: Modificata generate_excel_from_template_with_opus() con try-catch e retry
+- Gestisce tutti i provider con temperature specifiche
+
+### File modificati
+- unified_app.py: Aggiunte logica retry e funzione helper
+
+---
+
+
 ## v0.38 (2025-10-22)
 ### Fix
 Fix generazione template: dimensioni multi-valore ora preservate integralmente (es: "1540x1270x835" invece di solo "1540")

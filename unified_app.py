@@ -2205,6 +2205,89 @@ def get_ai_results():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def retry_with_increased_temperature(provider, prompt, text, provider_name):
+    """
+    Retry AI call with temporarily increased temperature (+0.1) without modifying saved values.
+    Returns response text or None if retry fails.
+    """
+    try:
+        # Determine provider type and call with increased temperature
+        if 'gemini' in provider_name.lower():
+            # Gemini retry with temp +0.1
+            import google.generativeai as genai
+            generation_config = genai.GenerationConfig(
+                temperature=0.1,  # 0.0 + 0.1
+                top_p=0.1,
+                top_k=1,
+                max_output_tokens=8192,
+            )
+            response = provider.client.generate_content(
+                f"{prompt}\n\n{text}",
+                generation_config=generation_config
+            )
+            # Handle safety blocks
+            if not response.candidates:
+                return None
+            candidate = response.candidates[0]
+            if candidate.finish_reason and candidate.finish_reason != 1:
+                return None
+            return response.text
+
+        elif 'claude' in provider_name.lower():
+            # Claude retry with temp +0.1
+            model = "claude-opus-4-1-20250805" if "opus" in provider_name.lower() else "claude-sonnet-4-5-20250929"
+            message = provider.client.messages.create(
+                model=model,
+                max_tokens=4096,
+                temperature=1.1,  # 1.0 + 0.1 (but capped at max 1.0 by API)
+                messages=[{
+                    "role": "user",
+                    "content": f"{prompt}\n\n{text}"
+                }]
+            )
+            return message.content[0].text
+
+        elif 'gpt' in provider_name.lower() or 'openai' in provider_name.lower():
+            # OpenAI retry with temp +0.1
+            response = provider.client.chat.completions.create(
+                model="gpt-4.1-2025-04-14",
+                messages=[
+                    {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
+                    {"role": "user", "content": f"{prompt}\n\n{text}"}
+                ],
+                max_tokens=4096,
+                temperature=0.8  # 0.7 + 0.1
+            )
+            return response.choices[0].message.content
+
+        elif 'novita' in provider_name.lower() or 'qwen' in provider_name.lower():
+            # Novita AI retry with temp +0.1
+            response = provider.client.chat.completions.create(
+                model="qwen/qwen3-vl-235b-a22b-thinking",
+                messages=[
+                    {"role": "system", "content": "You are a helpful AI assistant analyzing PDF documents."},
+                    {"role": "user", "content": f"{prompt}\n\n{text}"}
+                ],
+                max_tokens=32768,
+                temperature=0.7,  # 0.6 + 0.1
+                top_p=0.95,
+                extra_body={
+                    "enable_thinking": True,
+                    "top_k": 20,
+                    "min_p": 0
+                }
+            )
+            return response.choices[0].message.content
+
+        else:
+            print(f"Unknown provider type for retry: {provider_name}")
+            return None
+
+    except Exception as e:
+        print(f"Retry with increased temperature failed: {str(e)}")
+        return None
+
+
 def generate_excel_from_template_with_opus(template_text, extracted_data):
     """
     Use current AI provider to interpret template and generate Excel file
@@ -2300,8 +2383,23 @@ REGOLE IMPORTANTI:
                 }
             }
 
-        # Use current provider's analyze_text method
-        response_text = current_provider.analyze_text(prompt, "")
+        # Use current provider's analyze_text method with retry on safety error
+        response_text = None
+        provider_name = ai_manager.get_current_provider_name()
+
+        try:
+            response_text = current_provider.analyze_text(prompt, "")
+        except Exception as e:
+            error_msg = str(e).lower()
+            # Check if it's a safety/temperature error
+            if any(keyword in error_msg for keyword in ['safety', 'finish_reason', 'blocked', 'recitation']):
+                print(f"Safety error detected with {provider_name}, retrying with increased temperature (+0.1)...")
+                # Retry with temporarily increased temperature
+                response_text = retry_with_increased_temperature(current_provider, prompt, "", provider_name)
+                if not response_text:
+                    raise e  # Re-raise original error if retry failed
+            else:
+                raise e
 
         # Try to parse JSON from response
         try:
@@ -2312,11 +2410,9 @@ REGOLE IMPORTANTI:
                 response_text = response_text.split('```')[1].split('```')[0]
 
             excel_data = json.loads(response_text.strip())
-            provider_name = ai_manager.get_current_provider_name()
             return {'success': True, 'excel_data': excel_data, 'provider': provider_name}
 
         except json.JSONDecodeError as e:
-            provider_name = ai_manager.get_current_provider_name()
             return {'error': f'Invalid JSON response from {provider_name}: {str(e)}'}
 
     except Exception as e:

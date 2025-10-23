@@ -1,6 +1,25 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.36 (2025-10-22)
+### Modifiche
+Parametri Gemini impostati su valori estremamente deterministici per output ripetibili e consistenti
+
+### Dettagli tecnici
+- Temperature: 0.7 → 0.0 (massimo determinismo)
+- Top-p: 0.95 → 0.1 (campionamento molto restrittivo)
+- Top-k: 40 → 1 (solo token più probabile)
+- Max output tokens: 8192 (invariato)
+
+### Comportamento
+Con temperature=0.0 e top_k=1, Gemini selezionerà sempre il token più probabile, producendo output identici per lo stesso input. Ideale per estrazioni dimensioni ripetibili e analisi tecniche deterministiche.
+
+### File modificati
+- ai_providers.py: Aggiornati tutti e tre i metodi GeminiProvider (analyze_text, analyze_vision, chat)
+
+---
+
+
 ## v0.35 (2025-10-22)
 ### Aggiornamento
 Aggiornato OpenAI da GPT-4o a GPT-4.1 (modello più recente con vision potenziata per disegni tecnici)

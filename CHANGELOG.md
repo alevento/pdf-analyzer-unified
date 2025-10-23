@@ -1,6 +1,33 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.38 (2025-10-22)
+### Fix
+Fix generazione template: dimensioni multi-valore ora preservate integralmente (es: "1540x1270x835" invece di solo "1540")
+
+### Problema risolto
+Prima: Dimensioni come "1540x1270x835" venivano troncate a "1540" nel template Excel
+Ora: Valore completo preservato esattamente come estratto dall'AI
+
+### Soluzione implementata
+Prompt migliorato con istruzioni esplicite a tre livelli:
+
+1. **Dimension notice**: "CRITICO: Copia le dimensioni ESATTAMENTE come fornite"
+2. **Esempio specifico**: "Se hai '1540x1270x835', mantieni IL VALORE COMPLETO"
+3. **Regole importanti**: "usa il valore COMPLETO senza modifiche (es: '1540x1270x835' nella cella, NON solo '1540')"
+
+### Dettagli tecnici
+- unified_app.py: Aggiornato prompt generate_excel_from_template_with_opus()
+- Istruzioni in MAIUSCOLO per enfatizzare criticità
+- Esempio concreto "1540x1270x835" ripetuto in più punti del prompt
+- Applicato a tutti i provider AI (Gemini, Claude, GPT-4.1)
+
+### File modificati
+- unified_app.py: Prompt dimension_notice e regole importanti
+
+---
+
+
 ## v0.37 (2025-10-22)
 ### Ottimizzazione
 Sistema cache per dimensioni estratte: riutilizzo automatico in generazione template senza consumare token API

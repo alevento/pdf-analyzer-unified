@@ -2239,10 +2239,18 @@ def generate_excel_from_template_with_opus(template_text, extracted_data):
     dimension_note_hint = ""
     if dimensions_data:
         if dimensions_provider:
-            dimension_notice = f"IMPORTANTE: Sono disponibili dimensioni estratte dal disegno con {dimensions_provider}. Usa questi dati per popolare i campi di dimensione nel template."
+            dimension_notice = f"""IMPORTANTE: Sono disponibili dimensioni estratte dal disegno con {dimensions_provider}.
+Usa questi dati per popolare i campi di dimensione nel template.
+CRITICO: Copia le dimensioni ESATTAMENTE come fornite, senza modificarle o parsarle.
+Se le dimensioni contengono valori multipli (es: "1540x1270x835"), mantieni IL VALORE COMPLETO così com'è.
+NON estrarre solo il primo numero, usa SEMPRE il valore integrale."""
             dimension_note_hint = f" - Dimensioni estratte con {dimensions_provider}"
         else:
-            dimension_notice = "IMPORTANTE: Sono disponibili dimensioni estratte dal disegno. Usa questi dati per popolare i campi di dimensione nel template."
+            dimension_notice = """IMPORTANTE: Sono disponibili dimensioni estratte dal disegno.
+Usa questi dati per popolare i campi di dimensione nel template.
+CRITICO: Copia le dimensioni ESATTAMENTE come fornite, senza modificarle o parsarle.
+Se le dimensioni contengono valori multipli (es: "1540x1270x835"), mantieni IL VALORE COMPLETO così com'è.
+NON estrarre solo il primo numero, usa SEMPRE il valore integrale."""
 
     prompt = f"""Hai ricevuto un template per creare un file Excel/CSV e dei dati estratti da un PDF.
 
@@ -2271,7 +2279,10 @@ Rispondi SOLO con un JSON in questo formato:
   "notes": "Note opzionali su come sono stati mappati i dati{dimension_note_hint}"
 }}
 
-Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con una nota esplicativa."""
+REGOLE IMPORTANTI:
+1. Se non riesci a mappare alcuni campi, lascia celle vuote (stringa vuota "") con una nota esplicativa
+2. Per le DIMENSIONI: usa il valore COMPLETO senza modifiche (es: se hai "1540x1270x835", scrivi "1540x1270x835" nella cella, NON solo "1540")
+3. Mantieni SEMPRE il formato originale dei dati estratti, specialmente per dimensioni e misure"""
 
     try:
         if DEMO_MODE:

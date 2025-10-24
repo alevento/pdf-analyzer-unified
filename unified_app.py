@@ -2205,18 +2205,28 @@ def get_ai_results():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def retry_with_increased_temperature(provider, prompt, text, provider_name):
+def retry_with_increased_temperature(provider, prompt, text, provider_name, temp_increment=0.1):
     """
-    Retry AI call with temporarily increased temperature (+0.1) without modifying saved values.
-    Returns response text or None if retry fails.
+    Retry AI call with temporarily increased temperature without modifying saved values.
+
+    Args:
+        provider: AI provider instance
+        prompt: Prompt string
+        text: Text to analyze
+        provider_name: Provider name string
+        temp_increment: Temperature increment (default 0.1)
+
+    Returns:
+        Response text or None if retry fails.
     """
     try:
         # Determine provider type and call with increased temperature
         if 'gemini' in provider_name.lower():
-            # Gemini retry with temp +0.1
+            # Gemini retry with temp increment
             import google.generativeai as genai
+            new_temp = min(0.0 + temp_increment, 1.0)  # Base 0.0, capped at 1.0
             generation_config = genai.GenerationConfig(
-                temperature=0.1,  # 0.0 + 0.1
+                temperature=new_temp,
                 top_p=0.1,
                 top_k=1,
                 max_output_tokens=8192,
@@ -2234,12 +2244,13 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name):
             return response.text
 
         elif 'claude' in provider_name.lower():
-            # Claude retry with temp +0.1
+            # Claude retry with temp increment
             model = "claude-opus-4-1-20250805" if "opus" in provider_name.lower() else "claude-sonnet-4-5-20250929"
+            new_temp = min(1.0 + temp_increment, 1.0)  # Base 1.0, capped at 1.0 by API
             message = provider.client.messages.create(
                 model=model,
                 max_tokens=4096,
-                temperature=1.1,  # 1.0 + 0.1 (but capped at max 1.0 by API)
+                temperature=new_temp,
                 messages=[{
                     "role": "user",
                     "content": f"{prompt}\n\n{text}"
@@ -2248,7 +2259,8 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name):
             return message.content[0].text
 
         elif 'gpt' in provider_name.lower() or 'openai' in provider_name.lower():
-            # OpenAI retry with temp +0.1
+            # OpenAI retry with temp increment
+            new_temp = min(0.7 + temp_increment, 2.0)  # Base 0.7, capped at 2.0
             response = provider.client.chat.completions.create(
                 model="gpt-4.1-2025-04-14",
                 messages=[
@@ -2256,12 +2268,13 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name):
                     {"role": "user", "content": f"{prompt}\n\n{text}"}
                 ],
                 max_tokens=4096,
-                temperature=0.8  # 0.7 + 0.1
+                temperature=new_temp
             )
             return response.choices[0].message.content
 
         elif 'novita' in provider_name.lower() or 'qwen' in provider_name.lower():
-            # Novita AI retry with temp +0.1
+            # Novita AI retry with temp increment
+            new_temp = min(0.6 + temp_increment, 1.0)  # Base 0.6, capped at 1.0
             response = provider.client.chat.completions.create(
                 model="qwen/qwen3-vl-235b-a22b-thinking",
                 messages=[
@@ -2269,7 +2282,7 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name):
                     {"role": "user", "content": f"{prompt}\n\n{text}"}
                 ],
                 max_tokens=32768,
-                temperature=0.7,  # 0.6 + 0.1
+                temperature=new_temp,
                 top_p=0.95,
                 extra_body={
                     "enable_thinking": True,
@@ -2284,7 +2297,7 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name):
             return None
 
     except Exception as e:
-        print(f"Retry with increased temperature failed: {str(e)}")
+        print(f"Retry with temperature +{temp_increment} failed: {str(e)}")
         return None
 
 
@@ -2383,7 +2396,7 @@ REGOLE IMPORTANTI:
                 }
             }
 
-        # Use current provider's analyze_text method with retry on safety error
+        # Use current provider's analyze_text method with progressive retry on safety error
         response_text = None
         provider_name = ai_manager.get_current_provider_name()
 
@@ -2393,11 +2406,18 @@ REGOLE IMPORTANTI:
             error_msg = str(e).lower()
             # Check if it's a safety/temperature error
             if any(keyword in error_msg for keyword in ['safety', 'finish_reason', 'blocked', 'recitation']):
-                print(f"Safety error detected with {provider_name}, retrying with increased temperature (+0.1)...")
-                # Retry with temporarily increased temperature
-                response_text = retry_with_increased_temperature(current_provider, prompt, "", provider_name)
+                print(f"Safety error detected with {provider_name}, retrying with progressively increased temperature...")
+                # Progressive retry with increments: +0.1, +0.2, +0.3, +0.4, +0.5
+                for increment in [0.1, 0.2, 0.3, 0.4, 0.5]:
+                    print(f"  Attempt with temperature +{increment}...")
+                    response_text = retry_with_increased_temperature(current_provider, prompt, "", provider_name, increment)
+                    if response_text:
+                        print(f"  ✓ Success with temperature +{increment}")
+                        break
+
                 if not response_text:
-                    raise e  # Re-raise original error if retry failed
+                    print(f"  ✗ All retry attempts failed")
+                    raise e  # Re-raise original error if all retries failed
             else:
                 raise e
 

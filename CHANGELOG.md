@@ -1,6 +1,57 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.40 (2025-10-22)
+### Miglioramento
+Retry progressivi multipli per errori safety: ora prova temperature 0.1, 0.2, 0.3, 0.4, 0.5 fino al successo
+
+### Problema risolto (v0.39)
+Sistema retry con solo +0.1 non sufficiente per alcuni contenuti che triggerano safety filters
+
+### Nuova soluzione (v0.40)
+Retry progressivi con incrementi graduali fino a trovare temperatura che funziona:
+
+**Sequenza tentativi per Gemini:**
+1. Temperatura 0.0 (normale) → errore safety
+2. Temperatura 0.1 (+0.1) → se errore, continua
+3. Temperatura 0.2 (+0.2) → se errore, continua
+4. Temperatura 0.3 (+0.3) → se errore, continua
+5. Temperatura 0.4 (+0.4) → se errore, continua
+6. Temperatura 0.5 (+0.5) → ultimo tentativo
+
+**Log dettagliato nel terminale:**
+```
+Safety error detected with Gemini 2.5 Pro, retrying with progressively increased temperature...
+  Attempt with temperature +0.1...
+  Attempt with temperature +0.2...
+  Attempt with temperature +0.3...
+  ✓ Success with temperature +0.3
+```
+
+### Vantaggi
+- Massimizza probabilità di successo (5 tentativi invece di 1)
+- Usa temperatura minima necessaria
+- Log trasparente per debugging
+- Valori configurati rimangono invariati
+
+### Temperature massime per provider
+- **Gemini**: fino a 0.5 (base 0.0 + incrementi)
+- **Claude**: 1.0 (già al massimo API)
+- **GPT-4.1**: fino a 1.2 (base 0.7 + incrementi, max API 2.0)
+- **Qwen**: fino a 1.0 (base 0.6 + incrementi, capped)
+
+### Implementazione
+- unified_app.py: Modificato generate_excel_from_template_with_opus() con loop incrementi
+- unified_app.py: Aggiunto parametro temp_increment a retry_with_increased_temperature()
+- Loop progressivo: for increment in [0.1, 0.2, 0.3, 0.4, 0.5]
+- Break al primo successo
+
+### File modificati
+- unified_app.py: Sistema retry progressivo con log dettagliato
+
+---
+
+
 ## v0.39 (2025-10-22)
 ### Nuova funzionalità
 Sistema retry automatico con temperatura aumentata per errori safety nella generazione template

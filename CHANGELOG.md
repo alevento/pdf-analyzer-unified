@@ -1,6 +1,38 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.41 (2025-10-22)
+### Fix
+Fix errore encoding Windows: rimossi caratteri Unicode (✓ ✗) dai log che causavano crash su terminale Windows
+
+### Problema risolto
+Errore: "'charmap' codec can't encode character '\u2713' in position 2: character maps to <undefined>"
+Causa: Terminale Windows (CMD) usa codepage 'charmap' (CP1252) che non supporta simboli Unicode
+
+### Soluzione
+Sostituiti caratteri Unicode con alternative ASCII-safe:
+- ✓ → [OK]
+- ✗ → [FAILED]
+
+### Log aggiornati
+Prima:
+```
+  ✓ Success with temperature +0.3
+  ✗ All retry attempts failed
+```
+
+Ora:
+```
+  [OK] Success with temperature +0.3
+  [FAILED] All retry attempts failed
+```
+
+### File modificati
+- unified_app.py: Sostituiti caratteri Unicode nei print statements
+
+---
+
+
 ## v0.40 (2025-10-22)
 ### Miglioramento
 Retry progressivi multipli per errori safety: ora prova temperature 0.1, 0.2, 0.3, 0.4, 0.5 fino al successo

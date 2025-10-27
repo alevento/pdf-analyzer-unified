@@ -2412,11 +2412,11 @@ REGOLE IMPORTANTI:
                     print(f"  Attempt with temperature +{increment}...")
                     response_text = retry_with_increased_temperature(current_provider, prompt, "", provider_name, increment)
                     if response_text:
-                        print(f"  ✓ Success with temperature +{increment}")
+                        print(f"  [OK] Success with temperature +{increment}")
                         break
 
                 if not response_text:
-                    print(f"  ✗ All retry attempts failed")
+                    print(f"  [FAILED] All retry attempts failed")
                     raise e  # Re-raise original error if all retries failed
             else:
                 raise e

@@ -1298,6 +1298,11 @@ document.addEventListener('DOMContentLoaded', function() {
             checkbox.addEventListener('change', saveExtractionMethodPreferences);
         }
     });
+
+    // Initialize unified prompt manager
+    setupUnifiedPromptFileUpload();
+    loadDimensionPromptsListForUnified();
+    loadDimensionPromptsForTemplateSelector();
 });
 
 function handleTemplateSelect(event) {
@@ -2203,6 +2208,504 @@ function updateButtonsBasedOnCapabilities(capabilities) {
             const visionLabel = document.querySelector('label[for="methodAIVision"]');
             if (visionLabel) visionLabel.style.opacity = '1';
         }
+    }
+}
+
+// ============================================================================
+// UNIFIED PROMPT MANAGER
+// ============================================================================
+
+let currentPromptType = 'dimension'; // 'dimension' or 'template'
+
+/**
+ * Switch between dimension and template prompt types
+ */
+function switchPromptType(type) {
+    currentPromptType = type;
+
+    // Update summary banner
+    const icon = document.getElementById('promptTypeIcon');
+    const label = document.getElementById('promptTypeLabel');
+    const description = document.getElementById('promptTypeDescription');
+    const summary = document.getElementById('promptTypeSummary');
+    const executeBtn = document.getElementById('executePromptBtn');
+    const contentSection = document.getElementById('promptContentSection');
+    const templateLoadedInfo = document.getElementById('templateLoadedInfo');
+    const textarea = document.getElementById('unifiedPromptContent');
+    const promptNameInput = document.getElementById('unifiedPromptName');
+
+    if (type === 'dimension') {
+        // Dimension prompt mode
+        icon.textContent = '📐';
+        label.textContent = 'Prompt Dimensioni';
+        description.textContent = 'Gestisci i prompt per l\'estrazione automatica delle dimensioni dai disegni tecnici';
+        summary.style.backgroundColor = '#fff3cd';
+        summary.style.borderLeft = '4px solid #ff9800';
+        executeBtn.style.display = 'block';
+        executeBtn.textContent = '📐 Estrai';
+        textarea.style.display = 'block';
+        templateLoadedInfo.style.display = 'none';
+        textarea.placeholder = 'Es: Estrai dimensioni: lunghezza, larghezza, altezza...';
+        promptNameInput.placeholder = 'Es: Dim. Meccaniche';
+    } else {
+        // Template prompt mode
+        icon.textContent = '📋';
+        label.textContent = 'Prompt Template';
+        description.textContent = 'Gestisci i template per la generazione automatica di Excel/CSV dai dati estratti';
+        summary.style.backgroundColor = '#d4edda';
+        summary.style.borderLeft = '4px solid #3498db';
+        executeBtn.style.display = 'none';
+
+        // For templates, show info message instead of textarea if template is loaded
+        if (currentTemplate) {
+            textarea.style.display = 'none';
+            templateLoadedInfo.style.display = 'block';
+        } else {
+            textarea.style.display = 'block';
+            templateLoadedInfo.style.display = 'none';
+        }
+
+        textarea.placeholder = 'Carica un template da file o dalla libreria...';
+        promptNameInput.placeholder = 'Es: Tabella Misure';
+    }
+
+    // Reload the appropriate prompt list
+    if (type === 'dimension') {
+        loadDimensionPromptsListForUnified();
+    } else {
+        loadTemplatePromptsListForUnified();
+    }
+
+    // Clear current selection and inputs
+    document.getElementById('unifiedPromptSelect').value = '';
+    document.getElementById('unifiedPromptName').value = '';
+    document.getElementById('unifiedPromptContent').value = '';
+    document.getElementById('unifiedPromptStatus').textContent = '';
+    updateUnifiedPromptButtons();
+}
+
+/**
+ * Load dimension prompts list into unified selector
+ */
+async function loadDimensionPromptsListForUnified() {
+    try {
+        const response = await fetch('/get_dimension_prompts');
+        const data = await response.json();
+
+        const select = document.getElementById('unifiedPromptSelect');
+        select.innerHTML = '<option value="">-- Seleziona --</option>';
+
+        if (data.success && data.prompts) {
+            data.prompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.id;
+                option.textContent = prompt.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading dimension prompts:', error);
+    }
+}
+
+/**
+ * Load template prompts list into unified selector
+ */
+async function loadTemplatePromptsListForUnified() {
+    try {
+        const response = await fetch('/get_templates');
+        const data = await response.json();
+
+        const select = document.getElementById('unifiedPromptSelect');
+        select.innerHTML = '<option value="">-- Seleziona --</option>';
+
+        if (data.success && data.templates) {
+            data.templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+/**
+ * Load selected prompt
+ */
+async function loadUnifiedPrompt() {
+    const select = document.getElementById('unifiedPromptSelect');
+    const promptId = select.value;
+    const status = document.getElementById('unifiedPromptStatus');
+
+    if (!promptId) {
+        alert('Seleziona un prompt dalla lista');
+        return;
+    }
+
+    try {
+        status.textContent = '⏳ Caricamento...';
+
+        if (currentPromptType === 'dimension') {
+            // Load dimension prompt
+            const response = await fetch(`/get_dimension_prompt/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById('unifiedPromptContent').value = data.prompt.content;
+                document.getElementById('unifiedPromptName').value = data.prompt.name;
+                status.textContent = `✓ Prompt "${data.prompt.name}" caricato`;
+
+                // Also update the old dimension prompt input for compatibility
+                if (document.getElementById('dimensionPromptInput')) {
+                    document.getElementById('dimensionPromptInput').value = data.prompt.content;
+                }
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Errore caricamento');
+            }
+        } else {
+            // Load template
+            const response = await fetch(`/get_template/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                currentTemplate = data.template.content;
+                document.getElementById('unifiedPromptName').value = data.template.name;
+                document.getElementById('unifiedPromptContent').style.display = 'none';
+                document.getElementById('templateLoadedInfo').style.display = 'block';
+                status.textContent = `✓ Template "${data.template.name}" caricato`;
+
+                // Also update the old template variables for compatibility
+                if (document.getElementById('templateNameInput')) {
+                    document.getElementById('templateNameInput').value = data.template.name;
+                }
+                if (document.getElementById('generateTemplateBtn')) {
+                    document.getElementById('generateTemplateBtn').disabled = false;
+                }
+                if (document.getElementById('saveTemplateBtn')) {
+                    document.getElementById('saveTemplateBtn').disabled = false;
+                }
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Errore caricamento');
+            }
+        }
+
+        updateUnifiedPromptButtons();
+    } catch (error) {
+        status.textContent = '❌ Errore connessione';
+        console.error('Error loading prompt:', error);
+    }
+}
+
+/**
+ * Save current prompt
+ */
+async function saveUnifiedPrompt() {
+    const promptName = document.getElementById('unifiedPromptName').value.trim();
+    const status = document.getElementById('unifiedPromptStatus');
+
+    if (!promptName) {
+        alert('Inserisci un nome per il prompt');
+        return;
+    }
+
+    try {
+        status.textContent = '⏳ Salvataggio in corso...';
+
+        if (currentPromptType === 'dimension') {
+            // Save dimension prompt
+            const promptContent = document.getElementById('unifiedPromptContent').value.trim();
+
+            if (!promptContent) {
+                alert('Scrivi il contenuto del prompt');
+                return;
+            }
+
+            const response = await fetch('/save_dimension_prompt', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: promptName,
+                    content: promptContent
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.textContent = `✓ Prompt "${promptName}" salvato`;
+                await loadDimensionPromptsListForUnified();
+
+                // Also reload template dimension prompt selector
+                await loadDimensionPromptsForTemplateSelector();
+
+                // Clear inputs
+                document.getElementById('unifiedPromptFileInput').value = '';
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
+            }
+        } else {
+            // Save template
+            if (!currentTemplate) {
+                alert('Carica prima un template');
+                return;
+            }
+
+            const response = await fetch('/save_template', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: promptName,
+                    content: currentTemplate
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.textContent = `✓ Template "${promptName}" salvato`;
+                await loadTemplatePromptsListForUnified();
+
+                // Clear file input
+                document.getElementById('unifiedPromptFileInput').value = '';
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
+            }
+        }
+    } catch (error) {
+        status.textContent = '❌ Errore connessione';
+        console.error('Error saving prompt:', error);
+    }
+}
+
+/**
+ * Delete selected prompt
+ */
+async function deleteUnifiedPrompt() {
+    const select = document.getElementById('unifiedPromptSelect');
+    const promptId = select.value;
+    const status = document.getElementById('unifiedPromptStatus');
+
+    if (!promptId) {
+        alert('Seleziona un prompt dalla lista');
+        return;
+    }
+
+    if (!confirm('Sei sicuro di voler eliminare questo prompt?')) {
+        return;
+    }
+
+    try {
+        status.textContent = '⏳ Eliminazione...';
+
+        const endpoint = currentPromptType === 'dimension' ? '/delete_dimension_prompt' : '/delete_template';
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id: promptId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            status.textContent = '✓ Prompt eliminato';
+
+            // Reload appropriate list
+            if (currentPromptType === 'dimension') {
+                await loadDimensionPromptsListForUnified();
+                await loadDimensionPromptsForTemplateSelector();
+            } else {
+                await loadTemplatePromptsListForUnified();
+            }
+
+            // Clear inputs
+            document.getElementById('unifiedPromptContent').value = '';
+            document.getElementById('unifiedPromptName').value = '';
+            updateUnifiedPromptButtons();
+        } else {
+            status.textContent = '❌ ' + (data.error || 'Errore eliminazione');
+        }
+    } catch (error) {
+        status.textContent = '❌ Errore connessione';
+        console.error('Error deleting prompt:', error);
+    }
+}
+
+/**
+ * Download selected prompt
+ */
+async function downloadUnifiedPrompt() {
+    const select = document.getElementById('unifiedPromptSelect');
+    const promptId = select.value;
+
+    if (!promptId) {
+        alert('Seleziona un prompt dalla lista');
+        return;
+    }
+
+    try {
+        let content, filename;
+
+        if (currentPromptType === 'dimension') {
+            // Download dimension prompt
+            const response = await fetch(`/get_dimension_prompt/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                content = data.prompt.content;
+                filename = `${data.prompt.name}.txt`;
+            } else {
+                alert('Errore: ' + (data.error || 'Impossibile scaricare il prompt'));
+                return;
+            }
+        } else {
+            // Download template
+            const response = await fetch(`/get_template/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                content = data.template.content;
+                filename = `${data.template.name}.txt`;
+            } else {
+                alert('Errore: ' + (data.error || 'Impossibile scaricare il template'));
+                return;
+            }
+        }
+
+        // Create download
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        const status = document.getElementById('unifiedPromptStatus');
+        status.textContent = '✓ Download completato';
+    } catch (error) {
+        alert('Errore durante il download');
+        console.error('Error downloading prompt:', error);
+    }
+}
+
+/**
+ * Execute prompt (only for dimension extraction)
+ */
+async function executeUnifiedPrompt() {
+    if (currentPromptType === 'dimension') {
+        // Update the dimension prompt input before executing
+        const content = document.getElementById('unifiedPromptContent').value;
+        if (document.getElementById('dimensionPromptInput')) {
+            document.getElementById('dimensionPromptInput').value = content;
+        }
+        // Call the existing extractDimensions function
+        await extractDimensions();
+    }
+}
+
+/**
+ * Update button states based on current content
+ */
+function updateUnifiedPromptButtons() {
+    const saveBtn = document.getElementById('savePromptBtn');
+    const executeBtn = document.getElementById('executePromptBtn');
+    const content = document.getElementById('unifiedPromptContent').value.trim();
+    const nameInput = document.getElementById('unifiedPromptName').value.trim();
+
+    if (currentPromptType === 'dimension') {
+        const hasContent = content.length > 0;
+        saveBtn.disabled = !hasContent || !nameInput;
+        executeBtn.disabled = !hasContent || !currentPdfFile;
+    } else {
+        saveBtn.disabled = !currentTemplate || !nameInput;
+    }
+}
+
+/**
+ * Handle file upload for unified prompt manager
+ */
+function setupUnifiedPromptFileUpload() {
+    const fileInput = document.getElementById('unifiedPromptFileInput');
+
+    if (fileInput) {
+        fileInput.addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const status = document.getElementById('unifiedPromptStatus');
+
+            try {
+                const text = await file.text();
+
+                if (currentPromptType === 'dimension') {
+                    document.getElementById('unifiedPromptContent').value = text;
+                    status.textContent = `✓ File "${file.name}" caricato`;
+                } else {
+                    currentTemplate = text;
+                    document.getElementById('unifiedPromptContent').style.display = 'none';
+                    document.getElementById('templateLoadedInfo').style.display = 'block';
+                    status.textContent = `✓ Template "${file.name}" caricato`;
+
+                    // Also update old template variables
+                    if (document.getElementById('generateTemplateBtn')) {
+                        document.getElementById('generateTemplateBtn').disabled = false;
+                    }
+                    if (document.getElementById('saveTemplateBtn')) {
+                        document.getElementById('saveTemplateBtn').disabled = false;
+                    }
+                }
+
+                updateUnifiedPromptButtons();
+            } catch (error) {
+                status.textContent = '❌ Errore lettura file';
+                console.error('Error reading file:', error);
+            }
+        });
+    }
+
+    // Add event listeners to textarea and name input
+    const textarea = document.getElementById('unifiedPromptContent');
+    const nameInput = document.getElementById('unifiedPromptName');
+
+    if (textarea) {
+        textarea.addEventListener('input', updateUnifiedPromptButtons);
+    }
+
+    if (nameInput) {
+        nameInput.addEventListener('input', updateUnifiedPromptButtons);
+    }
+}
+
+/**
+ * Load dimension prompts into template selector
+ */
+async function loadDimensionPromptsForTemplateSelector() {
+    try {
+        const response = await fetch('/get_dimension_prompts');
+        const data = await response.json();
+
+        const select = document.getElementById('templateDimensionPromptSelect');
+        if (!select) return;
+
+        // Keep the first option
+        select.innerHTML = '<option value="">-- Nessuna estrazione dimensioni --</option>';
+
+        if (data.success && data.prompts) {
+            data.prompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.id;
+                option.textContent = prompt.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading dimension prompts for template selector:', error);
     }
 }
 

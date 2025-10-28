@@ -1,6 +1,53 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.42 (2025-10-22)
+### Feature
+Unificata gestione prompt: interfaccia unica per prompt dimensioni e template con selettore radio
+
+### Cosa è cambiato
+- Creata interfaccia unificata "Gestione Prompt" che sostituisce le due sezioni separate
+- Aggiunto selettore radio per switchare tra "Prompt Dimensioni" e "Prompt Template"
+- Banner riepilogativo colorato che indica chiaramente quale tipo di prompt è selezionato
+- Controlli unificati: libreria, carica, scarica, elimina, upload file, textarea, salva
+- Retrocompatibilità mantenuta con il selettore dimensioni nella sezione Template
+
+### UI unificata
+Prompt Dimensioni:
+- Banner arancione con icona 📐
+- Textarea visibile per editing diretto
+- Pulsante "Estrai" per esecuzione
+
+Prompt Template:
+- Banner verde con icona 📋
+- Info caricamento al posto della textarea (template non editabile visualmente)
+- Nessun pulsante estrazione (i template si usano con "Genera")
+
+### Vantaggi
+- Interfaccia più pulita e organizzata
+- Ridotto spazio UI sulla destra
+- Chiara indicazione visiva del contesto corrente
+- Unica libreria di controlli per entrambe le tipologie
+
+### File modificati
+- `templates/unified.html`: Sostituita sezione dimensioni con unified prompt manager
+- `static/unified.js`: Aggiunte funzioni unified prompt manager (switchPromptType, loadUnifiedPrompt, saveUnifiedPrompt, deleteUnifiedPrompt, downloadUnifiedPrompt)
+- `static/unified.js`: Inizializzazione automatica al caricamento pagina
+
+### Funzioni JavaScript aggiunte
+- `switchPromptType(type)`: Switch tra dimensioni e template
+- `loadDimensionPromptsListForUnified()`: Carica lista prompt dimensioni
+- `loadTemplatePromptsListForUnified()`: Carica lista template
+- `loadUnifiedPrompt()`: Carica prompt selezionato
+- `saveUnifiedPrompt()`: Salva prompt corrente
+- `deleteUnifiedPrompt()`: Elimina prompt selezionato
+- `downloadUnifiedPrompt()`: Scarica prompt come file .txt
+- `executeUnifiedPrompt()`: Esegue estrazione dimensioni
+- `updateUnifiedPromptButtons()`: Aggiorna stato pulsanti
+- `setupUnifiedPromptFileUpload()`: Gestisce upload file
+- `loadDimensionPromptsForTemplateSelector()`: Popola selettore nella sezione template
+
+
 ## v0.41 (2025-10-22)
 ### Fix
 Fix errore encoding Windows: rimossi caratteri Unicode (✓ ✗) dai log che causavano crash su terminale Windows

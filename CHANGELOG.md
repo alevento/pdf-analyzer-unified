@@ -1,6 +1,54 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.45 (2025-10-22)
+### Fix
+Gestione intelligente dei prompt duplicati: ricarica lista e selezione automatica
+
+### Problema risolto
+Quando l'utente importava un file con un nome già esistente:
+- Il backend restituiva errore "già esistente"
+- Il frontend mostrava solo l'errore
+- La lista NON veniva ricaricata
+- L'utente non vedeva il prompt esistente nel dropdown
+
+### Soluzione implementata
+Quando si tenta di salvare un prompt/template con nome già esistente:
+1. Il sistema riconosce l'errore "già esistente"
+2. Ricarica automaticamente la lista dei prompt
+3. Cerca e seleziona automaticamente il prompt esistente per nome
+4. Mostra messaggio informativo: "ℹ️ Prompt '[Nome]' già esistente - selezionato automaticamente"
+
+### Comportamento prima
+```
+1. Carica file "Dimensioni.txt"
+2. Nome auto-popolato: "Dimensioni"
+3. Clicca Salva
+4. Errore: "❌ Prompt 'Dimensioni' già esistente"
+5. Lista NON aggiornata → prompt non visibile
+```
+
+### Comportamento ora
+```
+1. Carica file "Dimensioni.txt"
+2. Nome auto-popolato: "Dimensioni"
+3. Clicca Salva
+4. Sistema: "ℹ️ Prompt 'Dimensioni' già esistente - selezionato automaticamente"
+5. Lista ricaricata → prompt selezionato nel dropdown
+6. Puoi subito usarlo o modificarlo
+```
+
+### Vantaggi
+- Nessun prompt "perso" o invisibile
+- UX più intuitiva e trasparente
+- Feedback chiaro sull'esistenza del prompt
+- Selezione automatica per uso immediato
+- Funziona sia per prompt dimensioni che template
+
+### File modificati
+- `static/unified.js`: Aggiunta gestione intelligente errore "già esistente" in saveUnifiedPrompt()
+
+
 ## v0.44 (2025-10-22)
 ### Improvement
 Auto-popolamento nome file e selezione automatica dopo salvataggio prompt

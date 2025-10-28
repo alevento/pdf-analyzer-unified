@@ -2490,7 +2490,30 @@ async function saveUnifiedPrompt() {
                 // Clear file input but keep the content and name
                 document.getElementById('unifiedPromptFileInput').value = '';
             } else {
-                status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
+                // Check if it's a "already exists" error
+                const errorMsg = data.error || 'Errore salvataggio';
+                if (errorMsg.includes('già esistente') || errorMsg.includes('already exists')) {
+                    // Reload the list to show the existing prompt
+                    await loadDimensionPromptsListForUnified();
+
+                    // Try to select the existing prompt by name
+                    const select = document.getElementById('unifiedPromptSelect');
+                    if (select) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].textContent === promptName) {
+                                select.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Also reload template dimension prompt selector
+                    await loadDimensionPromptsForTemplateSelector();
+
+                    status.textContent = `ℹ️ Prompt "${promptName}" già esistente - selezionato automaticamente`;
+                } else {
+                    status.textContent = '❌ ' + errorMsg;
+                }
             }
         } else {
             // Save template
@@ -2531,7 +2554,27 @@ async function saveUnifiedPrompt() {
                 // Clear file input but keep the content and name
                 document.getElementById('unifiedPromptFileInput').value = '';
             } else {
-                status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
+                // Check if it's a "already exists" error
+                const errorMsg = data.error || 'Errore salvataggio';
+                if (errorMsg.includes('già esistente') || errorMsg.includes('already exists')) {
+                    // Reload the list to show the existing template
+                    await loadTemplatePromptsListForUnified();
+
+                    // Try to select the existing template by name
+                    const select = document.getElementById('unifiedPromptSelect');
+                    if (select) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].textContent === promptName) {
+                                select.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    status.textContent = `ℹ️ Template "${promptName}" già esistente - selezionato automaticamente`;
+                } else {
+                    status.textContent = '❌ ' + errorMsg;
+                }
             }
         }
     } catch (error) {

@@ -1,6 +1,47 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.46 (2025-10-22)
+### Fix
+Corretto bug selezione automatica prompt salvati - mismatch nome campo ID
+
+### Problema risolto
+La selezione automatica dei prompt appena salvati NON funzionava perché:
+- Backend restituiva `prompt_id` e `template_id`
+- Frontend cercava `data.id`
+- La selezione nel dropdown falliva silenziosamente
+
+### Soluzione
+- Corretto fetch dell'ID: `data.prompt_id || data.id` per dimensioni
+- Corretto fetch dell'ID: `data.template_id || data.id` per template
+- Aggiunto logging estensivo per diagnostica:
+  - Log della risposta del backend
+  - Log del messaggio di errore
+  - Log della rilevazione duplicati
+  - Log del processo di selezione nel dropdown
+  - Warning se il prompt non viene trovato dopo il reload
+
+### Debug logging aggiunto
+```javascript
+console.log('Save dimension prompt response:', data);
+console.log('Error message:', errorMsg);
+console.log('Duplicate detected, reloading list...');
+console.log('Select element:', select, 'Options:', select?.options.length);
+console.log(`Checking option ${i}: "${text}" vs "${name}"`);
+console.log('Found and selected at index', i);
+console.warn('Prompt not found in dropdown after reload');
+```
+
+### Testing
+Ora è possibile vedere nella console del browser esattamente cosa succede quando:
+1. Salvi un nuovo prompt
+2. Tenti di salvare un duplicato
+3. Il sistema seleziona automaticamente il prompt
+
+### File modificati
+- `static/unified.js`: Corretti nomi campi ID e aggiunto logging diagnostico
+
+
 ## v0.45 (2025-10-22)
 ### Fix
 Gestione intelligente dei prompt duplicati: ricarica lista e selezione automatica

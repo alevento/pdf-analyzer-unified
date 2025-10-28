@@ -2465,6 +2465,7 @@ async function saveUnifiedPrompt() {
             });
 
             const data = await response.json();
+            console.log('Save dimension prompt response:', data);
 
             if (data.success) {
                 status.textContent = `✓ Prompt "${promptName}" salvato`;
@@ -2474,10 +2475,11 @@ async function saveUnifiedPrompt() {
 
                 // Select the newly saved prompt in the dropdown
                 const select = document.getElementById('unifiedPromptSelect');
-                if (data.id && select) {
+                const promptId = data.prompt_id || data.id; // Backend returns 'prompt_id'
+                if (promptId && select) {
                     // Find and select the option with this ID
                     for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === data.id) {
+                        if (select.options[i].value === promptId) {
                             select.selectedIndex = i;
                             break;
                         }
@@ -2492,18 +2494,31 @@ async function saveUnifiedPrompt() {
             } else {
                 // Check if it's a "already exists" error
                 const errorMsg = data.error || 'Errore salvataggio';
+                console.log('Error message:', errorMsg);
+
                 if (errorMsg.includes('già esistente') || errorMsg.includes('already exists')) {
+                    console.log('Duplicate detected, reloading list...');
+
                     // Reload the list to show the existing prompt
                     await loadDimensionPromptsListForUnified();
 
                     // Try to select the existing prompt by name
                     const select = document.getElementById('unifiedPromptSelect');
+                    console.log('Select element:', select, 'Options:', select?.options.length);
+
                     if (select) {
+                        let found = false;
                         for (let i = 0; i < select.options.length; i++) {
+                            console.log(`Checking option ${i}: "${select.options[i].textContent}" vs "${promptName}"`);
                             if (select.options[i].textContent === promptName) {
                                 select.selectedIndex = i;
+                                found = true;
+                                console.log('Found and selected at index', i);
                                 break;
                             }
+                        }
+                        if (!found) {
+                            console.warn('Prompt not found in dropdown after reload');
                         }
                     }
 
@@ -2541,10 +2556,11 @@ async function saveUnifiedPrompt() {
 
                 // Select the newly saved template in the dropdown
                 const select = document.getElementById('unifiedPromptSelect');
-                if (data.id && select) {
+                const templateId = data.template_id || data.id; // Backend returns 'template_id'
+                if (templateId && select) {
                     // Find and select the option with this ID
                     for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === data.id) {
+                        if (select.options[i].value === templateId) {
                             select.selectedIndex = i;
                             break;
                         }

@@ -2468,12 +2468,26 @@ async function saveUnifiedPrompt() {
 
             if (data.success) {
                 status.textContent = `✓ Prompt "${promptName}" salvato`;
+
+                // Reload the dimension prompts list
                 await loadDimensionPromptsListForUnified();
+
+                // Select the newly saved prompt in the dropdown
+                const select = document.getElementById('unifiedPromptSelect');
+                if (data.id && select) {
+                    // Find and select the option with this ID
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === data.id) {
+                            select.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
 
                 // Also reload template dimension prompt selector
                 await loadDimensionPromptsForTemplateSelector();
 
-                // Clear inputs
+                // Clear file input but keep the content and name
                 document.getElementById('unifiedPromptFileInput').value = '';
             } else {
                 status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
@@ -2498,9 +2512,23 @@ async function saveUnifiedPrompt() {
 
             if (data.success) {
                 status.textContent = `✓ Template "${promptName}" salvato`;
+
+                // Reload the template list
                 await loadTemplatePromptsListForUnified();
 
-                // Clear file input
+                // Select the newly saved template in the dropdown
+                const select = document.getElementById('unifiedPromptSelect');
+                if (data.id && select) {
+                    // Find and select the option with this ID
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === data.id) {
+                            select.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Clear file input but keep the content and name
                 document.getElementById('unifiedPromptFileInput').value = '';
             } else {
                 status.textContent = '❌ ' + (data.error || 'Errore salvataggio');
@@ -2677,16 +2705,23 @@ function setupUnifiedPromptFileUpload() {
 
                 if (currentPromptType === 'dimension') {
                     document.getElementById('unifiedPromptContent').value = text;
+
+                    // Auto-populate name field with filename (without .txt extension)
+                    const suggestedName = file.name.replace(/\.txt$/i, '');
+                    document.getElementById('unifiedPromptName').value = suggestedName;
+
                     status.textContent = `✓ File "${file.name}" caricato`;
                 } else {
                     currentTemplate = text;
                     document.getElementById('unifiedPromptContent').style.display = 'none';
                     document.getElementById('templateLoadedInfo').style.display = 'block';
-                    status.textContent = `✓ Template "${file.name}" caricato`;
 
-                    // Update template section at top
-                    const templateName = file.name.replace('.txt', '');
+                    // Auto-populate name field with filename (without .txt extension)
+                    const templateName = file.name.replace(/\.txt$/i, '');
+                    document.getElementById('unifiedPromptName').value = templateName;
                     updateTemplateLoadedInfo(templateName);
+
+                    status.textContent = `✓ Template "${file.name}" caricato`;
 
                     // Also update old template variables
                     if (document.getElementById('generateTemplateBtn')) {

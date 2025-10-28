@@ -1,6 +1,38 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.44 (2025-10-22)
+### Improvement
+Auto-popolamento nome file e selezione automatica dopo salvataggio prompt
+
+### Cosa è cambiato
+- Quando si carica un file .txt per un prompt (dimensioni o template), il campo "Nome" viene auto-popolato con il nome del file (senza estensione .txt)
+- Dopo aver salvato un prompt, viene automaticamente selezionato nel dropdown
+- Il file input viene svuotato ma il contenuto e il nome rimangono per permettere modifiche successive
+
+### Flusso UX migliorato
+Prima:
+1. Carica file → contenuto caricato
+2. Devi scrivere manualmente il nome
+3. Salva → lista si aggiorna ma nessun prompt selezionato
+4. Devi selezionare manualmente il prompt dalla lista
+
+Ora:
+1. Carica file → contenuto caricato + nome auto-popolato dal filename
+2. (Opzionale) Modifica il nome se necessario
+3. Salva → lista si aggiorna + prompt appena salvato automaticamente selezionato
+4. Puoi subito usarlo o fare altre operazioni
+
+### Vantaggi
+- Meno click e digitazione necessari
+- Workflow più fluido e intuitivo
+- Feedback visivo immediato del salvataggio
+- Possibilità di modificare il prompt appena salvato senza doverlo ricercare
+
+### File modificati
+- `static/unified.js`: Aggiunto auto-popolamento nome e selezione automatica dopo save
+
+
 ## v0.43 (2025-10-22)
 ### Improvement
 Rimossa gestione template duplicata e aggiunta visualizzazione template caricato nella sezione generazione

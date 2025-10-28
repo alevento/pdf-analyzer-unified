@@ -1,6 +1,53 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.43 (2025-10-22)
+### Improvement
+Rimossa gestione template duplicata e aggiunta visualizzazione template caricato nella sezione generazione
+
+### Cosa è cambiato
+- Rimossa sezione di gestione template dalla zona "Template Excel/CSV" (libreria, import, nome, salva)
+- Mantenuti solo i controlli per la GENERAZIONE: metodi estrazione, prompt dimensioni opzionale, pulsante Genera
+- Aggiunto banner informativo che mostra quale template è correntemente caricato
+- Aggiunta lista visibile dei template disponibili nell'interfaccia unificata (modalità Template)
+- Rinominato titolo sezione da "Template Excel/CSV" a "Generazione Template Excel/CSV"
+
+### UI Template Section
+Prima:
+- Libreria template con dropdown e pulsanti
+- Import da file
+- Nome template
+- Metodi estrazione
+- Prompt dimensioni opzionale
+- Pulsanti Salva e Genera
+
+Ora:
+- Banner verde "Template caricato: [Nome]" (quando caricato)
+- Warning giallo "Nessun template caricato" (quando non caricato)
+- Metodi estrazione
+- Prompt dimensioni opzionale
+- Solo pulsante "Genera Excel/CSV da Template"
+- Gestione template spostata nella sezione "Gestione Prompt" unificata sotto
+
+### UI Gestione Prompt Unificata (modalità Template)
+- Lista visibile dei template disponibili sotto il dropdown
+- Formato: box scrollabile con elenco "📋 Nome Template"
+- Si aggiorna automaticamente quando si carica/salva/elimina template
+
+### Vantaggi
+- Separazione netta tra GESTIONE (sotto) e GENERAZIONE (sopra)
+- Ridotto confusione UI eliminando duplicati
+- Chiara visibilità del template corrente
+- Lista template sempre visibile quando in modalità template
+
+### File modificati
+- `templates/unified.html`: Rimossa libreria template, aggiunta info template corrente e lista template
+- `static/unified.js`: Aggiunte funzioni updateTemplateLoadedInfo() e aggiornata loadTemplatePromptsListForUnified()
+
+### Nuove funzioni JavaScript
+- `updateTemplateLoadedInfo(templateName)`: Mostra/nasconde banner template caricato nella sezione generazione
+
+
 ## v0.42 (2025-10-22)
 ### Feature
 Unificata gestione prompt: interfaccia unica per prompt dimensioni e template con selettore radio

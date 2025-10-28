@@ -2269,9 +2269,16 @@ function switchPromptType(type) {
         promptNameInput.placeholder = 'Es: Tabella Misure';
     }
 
+    // Show/hide template list preview
+    const templateListPreview = document.getElementById('templateListPreview');
+    if (templateListPreview) {
+        templateListPreview.style.display = (type === 'template') ? 'block' : 'none';
+    }
+
     // Reload the appropriate prompt list
     if (type === 'dimension') {
         loadDimensionPromptsListForUnified();
+        updateTemplateLoadedInfo(''); // Clear template info when switching to dimensions
     } else {
         loadTemplatePromptsListForUnified();
     }
@@ -2319,16 +2326,38 @@ async function loadTemplatePromptsListForUnified() {
         const select = document.getElementById('unifiedPromptSelect');
         select.innerHTML = '<option value="">-- Seleziona --</option>';
 
+        const templateListContainer = document.getElementById('templateListContainer');
+
         if (data.success && data.templates) {
+            // Populate dropdown
             data.templates.forEach(template => {
                 const option = document.createElement('option');
                 option.value = template.id;
                 option.textContent = template.name;
                 select.appendChild(option);
             });
+
+            // Populate visible list
+            if (templateListContainer) {
+                if (data.templates.length === 0) {
+                    templateListContainer.innerHTML = '<div style="font-style: italic; color: #6c757d;">Nessun template salvato</div>';
+                } else {
+                    templateListContainer.innerHTML = data.templates.map(template =>
+                        `<div style="padding: 3px 0; border-bottom: 1px solid #e9ecef;">📋 ${template.name}</div>`
+                    ).join('');
+                }
+            }
+        } else {
+            if (templateListContainer) {
+                templateListContainer.innerHTML = '<div style="font-style: italic; color: #6c757d;">Nessun template salvato</div>';
+            }
         }
     } catch (error) {
         console.error('Error loading templates:', error);
+        const templateListContainer = document.getElementById('templateListContainer');
+        if (templateListContainer) {
+            templateListContainer.innerHTML = '<div style="color: #dc3545;">Errore caricamento template</div>';
+        }
     }
 }
 
@@ -2376,6 +2405,9 @@ async function loadUnifiedPrompt() {
                 document.getElementById('unifiedPromptContent').style.display = 'none';
                 document.getElementById('templateLoadedInfo').style.display = 'block';
                 status.textContent = `✓ Template "${data.template.name}" caricato`;
+
+                // Update template section at top
+                updateTemplateLoadedInfo(data.template.name);
 
                 // Also update the old template variables for compatibility
                 if (document.getElementById('templateNameInput')) {
@@ -2652,6 +2684,10 @@ function setupUnifiedPromptFileUpload() {
                     document.getElementById('templateLoadedInfo').style.display = 'block';
                     status.textContent = `✓ Template "${file.name}" caricato`;
 
+                    // Update template section at top
+                    const templateName = file.name.replace('.txt', '');
+                    updateTemplateLoadedInfo(templateName);
+
                     // Also update old template variables
                     if (document.getElementById('generateTemplateBtn')) {
                         document.getElementById('generateTemplateBtn').disabled = false;
@@ -2706,6 +2742,28 @@ async function loadDimensionPromptsForTemplateSelector() {
         }
     } catch (error) {
         console.error('Error loading dimension prompts for template selector:', error);
+    }
+}
+
+/**
+ * Update template loaded info in the template section at top
+ */
+function updateTemplateLoadedInfo(templateName) {
+    const currentTemplateInfo = document.getElementById('currentTemplateInfo');
+    const noTemplateWarning = document.getElementById('noTemplateWarning');
+    const currentTemplateName = document.getElementById('currentTemplateName');
+
+    if (currentTemplateInfo && noTemplateWarning && currentTemplateName) {
+        if (templateName && templateName.trim() !== '') {
+            // Show template loaded info
+            currentTemplateName.textContent = templateName;
+            currentTemplateInfo.style.display = 'block';
+            noTemplateWarning.style.display = 'none';
+        } else {
+            // Show no template warning
+            currentTemplateInfo.style.display = 'none';
+            noTemplateWarning.style.display = 'block';
+        }
     }
 }
 

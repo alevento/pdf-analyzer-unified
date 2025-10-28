@@ -760,31 +760,26 @@
 
                 <!-- Template Excel/CSV Section -->
                 <div id="templateSection" style="margin-bottom: 15px; padding: 12px; background-color: #f0f8ff; border: 2px solid #3498db; border-radius: 6px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #2c3e50;">📋 Template Excel/CSV</h3>
+                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #2c3e50;">📋 Generazione Template Excel/CSV</h3>
 
-                    <!-- Template Library -->
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Template Salvati:</label>
-                        <div style="display: flex; gap: 5px;">
-                            <select id="savedTemplatesSelect" style="flex: 1; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;">
-                                <option value="">-- Seleziona un template --</option>
-                            </select>
-                            <button class="btn" onclick="loadSavedTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #27ae60;">📂</button>
-                            <button class="btn" onclick="downloadTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #3498db;">💾</button>
-                            <button class="btn" onclick="deleteSavedTemplate()" style="padding: 6px 10px; font-size: 12px; background-color: #e74c3c;">🗑️</button>
+                    <!-- Current Template Info -->
+                    <div id="currentTemplateInfo" style="margin-bottom: 10px; padding: 8px; background-color: #e8f5e9; border: 1px solid #4caf50; border-radius: 4px; display: none;">
+                        <div style="font-size: 11px; font-weight: bold; color: #2c3e50; margin-bottom: 2px;">
+                            Template caricato: <span id="currentTemplateName" style="color: #4caf50;">-</span>
+                        </div>
+                        <div style="font-size: 10px; color: #7f8c8d;">
+                            Usa la sezione "Gestione Prompt" qui sotto per cambiare template o caricarne uno nuovo
                         </div>
                     </div>
 
-                    <!-- Import from file -->
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Oppure importa da file:</label>
-                        <input type="file" id="templateInput" accept=".txt" style="display: block; width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
-                    </div>
-
-                    <!-- Template name for saving -->
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 12px; color: #2c3e50; margin-bottom: 4px;">Nome template:</label>
-                        <input type="text" id="templateNameInput" placeholder="Es: Tabella Misure" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #bdc3c7; border-radius: 4px;" />
+                    <!-- No Template Warning -->
+                    <div id="noTemplateWarning" style="margin-bottom: 10px; padding: 8px; background-color: #fff3cd; border: 1px solid #ff9800; border-radius: 4px;">
+                        <div style="font-size: 11px; font-weight: bold; color: #856404;">
+                            ⚠️ Nessun template caricato
+                        </div>
+                        <div style="font-size: 10px; color: #856404;">
+                            Usa la sezione "Gestione Prompt" qui sotto per selezionare o caricare un template
+                        </div>
                     </div>
 
                     <!-- Extraction Methods Selection -->
@@ -823,15 +818,18 @@
                         <div style="font-size: 10px; color: #7f8c8d; margin-top: 4px;">Seleziona un prompt dimensioni salvato per estrarre automaticamente dimensioni durante la generazione del template</div>
                     </div>
 
-                    <!-- Action buttons -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
-                        <button class="btn" id="saveTemplateBtn" onclick="saveCurrentTemplate()" style="padding: 8px; font-size: 12px; background-color: #3498db;" disabled>
-                            💾 Salva
-                        </button>
-                        <button class="btn" id="generateTemplateBtn" onclick="generateFromTemplate()" style="padding: 8px; font-size: 12px; background-color: #e67e22;" disabled>
-                            🚀 Genera
+                    <!-- Action button -->
+                    <div style="margin-bottom: 8px;">
+                        <button class="btn" id="generateTemplateBtn" onclick="generateFromTemplate()" style="width: 100%; padding: 10px; font-size: 13px; background-color: #e67e22;" disabled>
+                            🚀 Genera Excel/CSV da Template
                         </button>
                     </div>
+
+                    <!-- Hidden elements for backward compatibility -->
+                    <input type="file" id="templateInput" accept=".txt" style="display: none;" />
+                    <input type="text" id="templateNameInput" style="display: none;" />
+                    <select id="savedTemplatesSelect" style="display: none;"></select>
+                    <button class="btn" id="saveTemplateBtn" onclick="saveCurrentTemplate()" style="display: none;" disabled></button>
 
                     <div id="templateStatus" style="font-size: 11px; color: #7f8c8d; text-align: center;"></div>
 
@@ -888,6 +886,12 @@
                             <button class="btn" id="loadPromptBtn" onclick="loadUnifiedPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #27ae60; flex-shrink: 0;">📂</button>
                             <button class="btn" id="downloadPromptBtn" onclick="downloadUnifiedPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #3498db; flex-shrink: 0;">💾</button>
                             <button class="btn" id="deletePromptBtn" onclick="deleteUnifiedPrompt()" style="padding: 5px 8px; font-size: 11px; background-color: #e74c3c; flex-shrink: 0;">🗑️</button>
+                        </div>
+
+                        <!-- Template list preview (only visible in template mode) -->
+                        <div id="templateListPreview" style="display: none; margin-top: 6px; padding: 6px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; max-height: 120px; overflow-y: auto;">
+                            <div style="font-size: 10px; color: #6c757d; margin-bottom: 4px; font-weight: bold;">Template disponibili:</div>
+                            <div id="templateListContainer" style="font-size: 10px; color: #495057;"></div>
                         </div>
                     </div>
 

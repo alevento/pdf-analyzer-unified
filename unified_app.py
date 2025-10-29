@@ -9,7 +9,7 @@ Combines:
 """
 
 import os
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 from werkzeug.utils import secure_filename
 import pdfplumber
 import fitz  # PyMuPDF
@@ -42,12 +42,14 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['TEMPLATES_FOLDER'] = 'saved_templates'
 app.config['DIMENSION_PROMPTS_FOLDER'] = 'saved_dimension_prompts'
+app.config['LAYOUT_PROMPTS_FOLDER'] = 'layout_prompts'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 ALLOWED_EXTENSIONS = {'pdf'}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['TEMPLATES_FOLDER'], exist_ok=True)
 os.makedirs(app.config['DIMENSION_PROMPTS_FOLDER'], exist_ok=True)
+os.makedirs(app.config['LAYOUT_PROMPTS_FOLDER'], exist_ok=True)
 
 # Configure AI Provider Manager
 DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
@@ -2735,12 +2737,12 @@ def get_dimension_prompts():
         prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
 
         if not os.path.exists(prompts_file):
-            return jsonify({'prompts': []})
+            return jsonify({'success': True, 'prompts': []})
 
         with open(prompts_file, 'r', encoding='utf-8') as f:
             prompts_data = json.load(f)
 
-        return jsonify({'prompts': prompts_data.get('prompts', [])})
+        return jsonify({'success': True, 'prompts': prompts_data.get('prompts', [])})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2861,6 +2863,235 @@ def delete_dimension_prompt(prompt_id):
         import traceback
         print(f"Errore eliminazione prompt: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# LAYOUT PROMPT LIBRARY ROUTES
+# ============================================================================
+
+@app.route('/get_layout_prompts', methods=['GET'])
+def get_layout_prompts():
+    """Get list of saved layout prompts"""
+    try:
+        prompts_file = os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'success': True, 'prompts': []})
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        return jsonify({'success': True, 'prompts': prompts_data.get('prompts', [])})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/save_layout_prompt', methods=['POST'])
+def save_layout_prompt():
+    """Save a new layout prompt"""
+    try:
+        data = request.json
+        prompt_name = data.get('name')
+        prompt_content = data.get('content')
+
+        if not prompt_name or not prompt_content:
+            return jsonify({'error': 'Nome e contenuto richiesti'}), 400
+
+        prompts_file = os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+
+        # Load existing prompts
+        if os.path.exists(prompts_file):
+            with open(prompts_file, 'r', encoding='utf-8') as f:
+                prompts_data = json.load(f)
+        else:
+            prompts_data = {'prompts': []}
+
+        # Check for duplicate names
+        existing_names = [p['name'] for p in prompts_data['prompts']]
+        if prompt_name in existing_names:
+            return jsonify({'error': f'Prompt "{prompt_name}" già esistente'}), 400
+
+        # Create new prompt
+        prompt_id = str(uuid.uuid4())
+        new_prompt = {
+            'id': prompt_id,
+            'name': prompt_name,
+            'content': prompt_content,
+            'created_at': datetime.datetime.now().isoformat()
+        }
+
+        prompts_data['prompts'].append(new_prompt)
+
+        # Save to file
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'prompt_id': prompt_id,
+            'message': f'Prompt "{prompt_name}" salvato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore salvataggio prompt layout: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_layout_prompt/<prompt_id>', methods=['GET'])
+def get_layout_prompt(prompt_id):
+    """Get a specific layout prompt by ID"""
+    try:
+        prompts_file = os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Find prompt by ID
+        prompt = next((p for p in prompts_data['prompts'] if p['id'] == prompt_id), None)
+
+        if not prompt:
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        return jsonify({
+            'success': True,
+            'prompt': prompt
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/delete_layout_prompt/<prompt_id>', methods=['DELETE'])
+def delete_layout_prompt(prompt_id):
+    """Delete a layout prompt"""
+    try:
+        prompts_file = os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Find and remove prompt
+        original_count = len(prompts_data['prompts'])
+        prompts_data['prompts'] = [p for p in prompts_data['prompts'] if p['id'] != prompt_id]
+
+        if len(prompts_data['prompts']) == original_count:
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        # Save updated prompts
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'message': 'Prompt eliminato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore eliminazione prompt layout: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/analyze_layout', methods=['POST'])
+def analyze_layout():
+    """Analyze entire PDF document to identify pages with drawings and their layout type"""
+    try:
+        # Use current AI provider
+        current_provider = ai_manager.get_current_provider()
+        if not current_provider:
+            return jsonify({'error': 'Nessun provider AI configurato. Aggiungi le API keys al file .env'}), 400
+
+        data = request.json
+        prompt = data.get('prompt')
+
+        if not prompt:
+            return jsonify({'error': 'Prompt richiesto'}), 400
+
+        provider_name = ai_manager.get_current_provider_name()
+
+        # Check vision capability
+        capabilities = ai_manager.get_current_capabilities()
+        if not capabilities.get('vision_analysis'):
+            return jsonify({'error': f'Il provider corrente ({provider_name}) non supporta analisi visione'}), 400
+
+        # Get current PDF file (always saved as 'current.pdf')
+        pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+
+        if not os.path.exists(pdf_path):
+            return jsonify({'error': 'Nessun PDF caricato'}), 400
+
+        # Open PDF and get page count
+        pdf_document = fitz.open(pdf_path)
+        total_pages = len(pdf_document)
+
+        # Analyze all pages
+        results = []
+        for page_num in range(total_pages):
+            page = pdf_document[page_num]
+
+            # Convert page to image
+            zoom = 2.0  # Higher resolution for better analysis
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+
+            # Convert to PNG bytes
+            img_data = pix.tobytes("png")
+
+            # Convert to base64
+            image_base64 = base64.b64encode(img_data).decode('utf-8')
+
+            # Create page-specific prompt
+            page_prompt = f"{prompt}\n\nPagina {page_num + 1} di {total_pages}"
+
+            # Analyze page with AI
+            try:
+                analysis = current_provider.analyze_vision(page_prompt, image_base64)
+                results.append({
+                    'page': page_num + 1,
+                    'analysis': analysis
+                })
+            except Exception as page_error:
+                results.append({
+                    'page': page_num + 1,
+                    'analysis': f'Errore analisi: {str(page_error)}'
+                })
+
+        pdf_document.close()
+
+        # Format results
+        formatted_analysis = f"=== ANALISI LAYOUT DOCUMENTO ===\n"
+        formatted_analysis += f"Totale pagine: {total_pages}\n"
+        formatted_analysis += f"Provider: {provider_name}\n"
+        formatted_analysis += f"\n{'='*60}\n\n"
+
+        for result in results:
+            formatted_analysis += f"PAGINA {result['page']}:\n"
+            formatted_analysis += f"{result['analysis']}\n"
+            formatted_analysis += f"\n{'-'*60}\n\n"
+
+        return jsonify({
+            'success': True,
+            'analysis': formatted_analysis,
+            'pages_analyzed': len(results),
+            'total_pages': total_pages,
+            'provider': provider_name
+        })
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Errore analisi layout: {error_details}")
+        provider_name = ai_manager.get_current_provider_name()
+
+        return jsonify({'error': f'Errore durante l\'analisi layout: {str(e)}'}), 500
 
 
 @app.route('/extract_dimensions', methods=['POST'])

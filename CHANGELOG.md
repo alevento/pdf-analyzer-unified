@@ -1,6 +1,376 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.53 (2025-10-29)
+### Miglioramenti UI e configurazione
+Aumentata dimensione font e impostato Gemini come provider predefinito
+
+### Modifiche
+1. **Aumento dimensione font**: Tutti i font-size aumentati di 2 punti per migliorare la leggibilità
+   - 10px → 12px
+   - 11px → 13px
+   - 12px → 14px
+   - 13px → 15px
+   - 14px → 16px
+   - 16px → 18px
+   - 18px → 20px
+   - 24px → 26px
+
+2. **Gemini come provider predefinito**: Spostato Gemini 2.5 Pro come primo provider AI nell'ordine di inizializzazione, rendendolo il provider predefinito se disponibile
+
+### File modificati
+- `templates/unified.html`: Aumentati tutti i font-size di 2 punti
+- `ai_providers.py`: Spostato Gemini all'inizio dell'inizializzazione provider (riga 574)
+
+
+## v0.52 (2025-10-29)
+### Fix
+Corretto errore "Nessun PDF caricato" nell'analisi layout
+
+### Problema
+Quando si utilizzava la funzione "🗂️ Analizza PDF" dal tipo di prompt Layout, anche dopo aver caricato un PDF, si verificava l'errore:
+```
+Errore: Nessun PDF caricato
+```
+
+### Causa
+La funzione `analyze_layout()` cercava il nome del PDF nella sessione Flask:
+```python
+if 'current_pdf' not in session:  # ❌ session['current_pdf'] non esiste
+    return jsonify({'error': 'Nessun PDF caricato'}), 400
+```
+
+Ma la funzione `upload_file()` salva sempre il PDF con il nome fisso `'current.pdf'` senza memorizzarlo nella sessione. Tutte le altre funzioni dell'app (come `get_page()`) usano direttamente il percorso fisso.
+
+### Soluzione
+Modificata la funzione `analyze_layout()` per usare il percorso fisso come tutte le altre funzioni:
+```python
+# Prima (BROKEN):
+if 'current_pdf' not in session:
+    return jsonify({'error': 'Nessun PDF caricato'}), 400
+pdf_filename = session['current_pdf']
+pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
+
+# Ora (FIXED):
+pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+if not os.path.exists(pdf_path):
+    return jsonify({'error': 'Nessun PDF caricato'}), 400
+```
+
+### File modificati
+- `unified_app.py`: Modificata funzione `analyze_layout()` per usare percorso fisso (righe 3025-3029)
+
+
+## v0.51 (2025-10-29)
+### Fix
+Corretto errore "name 'session' is not defined" nell'analisi layout
+
+### Problema
+Quando si utilizzava la funzione "🗂️ Analizza PDF" dal tipo di prompt Layout, si verificava un errore:
+```
+Errore durante l'analisi layout: name 'session' is not defined
+```
+
+### Causa
+La variabile `session` non era importata da Flask in `unified_app.py`, ma veniva utilizzata nella funzione `analyze_layout()` per accedere al PDF corrente:
+```python
+if 'current_pdf' not in session:  # ❌ Error: session non definito
+```
+
+### Soluzione
+Aggiunto `session` all'import di Flask alla riga 12:
+```python
+# Prima (BROKEN):
+from flask import Flask, render_template, request, jsonify, send_file
+
+# Ora (FIXED):
+from flask import Flask, render_template, request, jsonify, send_file, session
+```
+
+### File modificati
+- `unified_app.py`: Aggiunto `session` all'import di Flask (riga 12)
+
+
+## v0.50 (2025-10-28)
+### Fix
+Corretto errore "Cannot set properties of null" in dimension_prompts.js
+
+### Problema
+Quando si usava il pulsante "📐 Estrai" dall'unified prompt manager, si verificava un errore:
+```
+TypeError: Cannot set properties of null (setting 'disabled')
+at extractDimensions (dimension_prompts.js:62)
+```
+
+### Causa
+La funzione `extractDimensions()` in `dimension_prompts.js` cercava di accedere a elementi DOM che non esistono più:
+- `extractDimensionsBtn` → Non esiste nell'unified prompt manager
+- `dimensionStatus` → Non esiste nell'unified prompt manager
+
+### Soluzione
+Aggiunta logica di fallback per trovare elementi sia legacy che unified:
+```javascript
+// Prima (BROKEN):
+const extractBtn = document.getElementById('extractDimensionsBtn');
+extractBtn.disabled = true;  // ❌ Error: extractBtn is null
+
+// Ora (FIXED):
+const extractBtn = document.getElementById('extractDimensionsBtn') ||
+                   document.getElementById('executePromptBtn');
+if (extractBtn) {
+    extractBtn.disabled = true;  // ✅ Safe
+}
+```
+
+Applicato null check a tutti gli elementi DOM:
+- `extractBtn` / `executePromptBtn`
+- `dimensionStatus` / `unifiedPromptStatus`
+- `downloadButtons`
+- `textList`
+- `status`
+
+### Compatibilità
+Ora la funzione funziona sia con:
+- ✅ Unified Prompt Manager (nuovo)
+- ✅ Legacy dimension prompts UI (vecchio, se presente)
+
+### File modificati
+- `static/dimension_prompts.js`: Aggiunti null checks e fallback elementi (linee 56-144)
+
+
+## v0.49 (2025-10-28)
+### Nuova Funzionalità - Prompt Layout
+Aggiunta terza tipologia di prompt per analizzare la struttura del documento PDF
+
+### Funzionalità
+**Gestione Prompt Layout**: Nuovo tipo di prompt che permette di:
+1. Identificare quali pagine del PDF contengono disegni tecnici
+2. Riconoscere se i disegni hanno layout a sezione singola o multipla
+3. Analizzare automaticamente tutte le pagine del documento
+4. Generare report completo con analisi pagina per pagina
+
+### UI Aggiornata
+**Interfaccia Unificata a 3 Tipi**:
+- 📐 **Dimensioni**: Estrazione dimensioni da singola pagina
+- 📋 **Template**: Generazione Excel/CSV
+- 🗂️ **Layout**: Analisi struttura documento (NUOVO)
+
+**Colori distintivi**:
+- Dimensioni: Giallo/Arancio (#fff3cd / #ff9800)
+- Template: Verde (#d4edda / #3498db)
+- Layout: Blu (#e3f2fd / #2196f3)
+
+**Pulsante esecuzione Layout**: "🗂️ Analizza PDF"
+
+### Backend
+**Nuovi Endpoint**:
+```python
+GET  /get_layout_prompts           # Lista prompt layout salvati
+GET  /get_layout_prompt/<id>       # Dettagli prompt specifico
+POST /save_layout_prompt           # Salva nuovo prompt layout
+DEL  /delete_layout_prompt/<id>    # Elimina prompt layout
+POST /analyze_layout               # Analizza intero documento
+```
+
+**Analisi Multi-Pagina**:
+- Itera su tutte le pagine del PDF
+- Converte ogni pagina in immagine ad alta risoluzione
+- Analizza con AI vision (supporta tutti i provider configurati)
+- Gestisce errori per singola pagina senza bloccare l'intero processo
+- Report formattato con separatori visivi
+
+**Struttura Dati**:
+```
+layout_prompts/
+└── layout_prompts.json
+    {
+      "prompts": [
+        {
+          "id": "uuid",
+          "name": "Analisi Layout Standard",
+          "content": "prompt text...",
+          "created_at": "2025-10-28T..."
+        }
+      ]
+    }
+```
+
+### Frontend
+**Nuove Funzioni JavaScript**:
+```javascript
+loadLayoutPromptsListForUnified()      // Carica lista prompt
+analyzeDocumentLayout()                 // Esegue analisi completa
+downloadLayoutAnalysis()                // Scarica risultati TXT
+```
+
+**Supporto Completo**:
+- Salvataggio/Caricamento prompt layout
+- Auto-popolamento nome da file .txt
+- Gestione duplicati intelligente
+- Download risultati analisi con timestamp
+- Indicatore progresso durante analisi multi-pagina
+
+### Esempio Prompt Layout
+```
+Analizza questa pagina e indica:
+1. Contiene un disegno tecnico? (SI/NO)
+2. Se SI, tipo di layout:
+   - SEZIONE SINGOLA: un solo disegno principale
+   - SEZIONI MULTIPLE: più disegni o viste multiple
+
+Rispondi in formato:
+Pagina [N]: [SI/NO] - [TIPO LAYOUT se SI]
+```
+
+### Caso d'Uso
+**Scenario**: PDF di 50 pagine con mix di disegni e documentazione
+
+**Prima**: Analisi manuale pagina per pagina
+
+**Ora**:
+1. Carica PDF
+2. Seleziona "🗂️ Layout"
+3. Scegli o crea prompt layout
+4. Clicca "🗂️ Analizza PDF"
+5. Attendi analisi completa
+6. Scarica report TXT con analisi di tutte le 50 pagine
+
+**Risultato**: Report automatico che identifica esattamente quali pagine contengono disegni e la loro struttura
+
+### Performance
+- ⚠️ **Attenzione**: L'analisi di documenti con molte pagine può richiedere diversi minuti
+- Ogni pagina richiede una chiamata API al provider AI
+- Messaggio informativo mostrato durante l'elaborazione
+- Gestione timeout e errori per provider specifici
+
+### File Modificati
+**Frontend**:
+- `templates/unified.html`: Aggiunto terzo radio button (linee 865-868)
+- `static/unified.js`:
+  - `switchPromptType()` esteso per layout (linee 2287-2300)
+  - Nuove funzioni load/save/delete/execute per layout (linee 2405-3029)
+  - `analyzeDocumentLayout()` per analisi multi-pagina (linee 2911-2980)
+  - `downloadLayoutAnalysis()` per download risultati (linee 2985-3029)
+
+**Backend**:
+- `unified_app.py`:
+  - Configurazione `LAYOUT_PROMPTS_FOLDER` (linee 45, 52)
+  - Endpoint CRUD per layout prompts (linee 2872-3000)
+  - `/analyze_layout` per analisi documento completo (linee 3003-3098)
+
+### Compatibilità
+- ✅ Tutti i provider AI con supporto vision (Claude, GPT-4, Gemini)
+- ✅ PDF con qualsiasi numero di pagine
+- ✅ Backward compatible con prompt dimensioni e template esistenti
+
+
+## v0.48 (2025-10-28)
+### Fix Critico
+Risolto bug che impediva il caricamento dei prompt salvati
+
+### Problema
+Il dropdown dei prompt mostrava sempre solo "-- Seleziona --" anche quando c'erano prompt salvati. Quando si tentava di salvare un prompt duplicato:
+1. ✅ Il backend rilevava correttamente il duplicato
+2. ✅ Il frontend ricaricava la lista
+3. ❌ Ma i prompt non apparivano mai nel dropdown
+4. ❌ Console: "Options: 1" (solo l'opzione default)
+
+### Causa
+**Backend e Frontend non comunicavano correttamente**:
+- Backend (`get_dimension_prompts`):
+  ```python
+  return jsonify({'prompts': [...]})  # Mancava 'success': True
+  ```
+- Frontend (`loadDimensionPromptsListForUnified`):
+  ```javascript
+  if (data.success && data.prompts) {  // data.success era undefined!
+      // Questo codice non veniva MAI eseguito
+  }
+  ```
+
+### Soluzione
+Backend ora restituisce sempre `success: true`:
+```python
+return jsonify({'success': True, 'prompts': prompts_data.get('prompts', [])})
+```
+
+### Logging aggiunto per debugging
+Nel frontend per diagnosticare problemi futuri:
+```javascript
+console.log('Loading dimension prompts list...');
+console.log('Dimension prompts response:', data);
+console.log(`Found ${data.prompts.length} dimension prompts`);
+console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id})`);
+```
+
+### Comportamento ora corretto
+```
+1. Utente importa prompt "ATV gemini 4"
+2. Prompt già esiste → Backend restituisce errore 400
+3. Frontend rileva "già esistente"
+4. Ricarica lista → Backend restituisce {'success': true, 'prompts': [...]}
+5. Dropdown popolato correttamente
+6. Prompt selezionato automaticamente
+```
+
+### File modificati
+- `unified_app.py`: Aggiunto `'success': True` in `get_dimension_prompts()` (linee 2738, 2743)
+- `static/unified.js`: Aggiunto logging diagnostico in `loadDimensionPromptsListForUnified()` (linee 2316-2335)
+
+
+## v0.47 (2025-10-28)
+### Fix
+Corretto errore "currentPdfFile is not defined" e problemi con aggiornamento stato pulsanti
+
+### Problemi risolti
+1. **Error console**: `ReferenceError: currentPdfFile is not defined at updateUnifiedPromptButtons`
+   - La variabile `currentPdfFile` veniva usata ma mai dichiarata né popolata
+   - Il pulsante "Estrai Dimensioni" non si abilitava correttamente dopo caricamento PDF
+
+2. **Error console**: `Cannot set properties of null (setting 'innerHTML')` in dimension_prompts.js
+   - Il file `dimension_prompts.js` tentava di accedere a elementi DOM rimossi nella v0.42 (unified prompt manager)
+   - Causava errori in console anche se non bloccanti
+
+3. **Mancato aggiornamento pulsanti**: I pulsanti Salva/Estrai non si aggiornavano durante la digitazione
+
+### Soluzioni implementate
+1. **Tracciamento stato PDF**:
+   - Aggiunta dichiarazione globale: `let currentPdfFile = null;`
+   - Popolamento variabile dopo upload PDF: `currentPdfFile = file;`
+   - Chiamata `updateUnifiedPromptButtons()` dopo upload per aggiornare stato UI
+
+2. **Event listeners reattivi**:
+   - Aggiunti listener `input` su `unifiedPromptContent` per aggiornare pulsanti mentre si scrive
+   - Aggiunti listener `input` su `unifiedPromptName` per validare in tempo reale
+   - I pulsanti ora si abilitano/disabilitano dinamicamente in base al contenuto
+
+3. **Compatibilità retroattiva dimension_prompts.js**:
+   - Aggiunto null check in `loadDimensionPromptsList()`:
+     ```javascript
+     const select = document.getElementById('savedDimensionPromptsSelect');
+     if (!select) return; // Element doesn't exist - using unified manager
+     ```
+   - Previene errori quando gli elementi legacy non esistono
+
+### Comportamento ora corretto
+```
+1. Utente carica PDF → currentPdfFile salvato
+2. Utente carica prompt .txt → nome auto-popolato
+3. Mentre scrive nel prompt → pulsante Salva si abilita
+4. Pulsante Estrai abilitato SOLO se: prompt non vuoto E PDF caricato
+5. Nessun errore console da dimension_prompts.js
+```
+
+### File modificati
+- `static/unified.js`:
+  - Aggiunta variabile globale `currentPdfFile` (linea 10)
+  - Popolamento in `uploadFile()` dopo successo (linea 141)
+  - Chiamata `updateUnifiedPromptButtons()` dopo upload (linea 184)
+  - Event listeners per input prompt e nome (linee 1317-1322)
+- `static/dimension_prompts.js`:
+  - Null check in `loadDimensionPromptsList()` (linee 128-131)
+
+
 ## v0.46 (2025-10-22)
 ### Fix
 Corretto bug selezione automatica prompt salvati - mismatch nome campo ID

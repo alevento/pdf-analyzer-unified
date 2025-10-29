@@ -7,6 +7,7 @@ let currentPage = 0;
 let currentMode = 'numbers'; // 'numbers', 'pdfplumber', 'ocr', 'ai'
 let currentPageImage = null; // Store current page image for AI vision
 let currentDisplayData = null; // Store currently displayed data for download
+let currentPdfFile = null; // Store current uploaded PDF file
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -77,6 +78,18 @@ document.addEventListener('DOMContentLoaded', function() {
     extractNumbersBtn.addEventListener('click', handleExtractNumbers);
     extractPdfplumberBtn.addEventListener('click', handleExtractPdfplumber);
     extractOcrBtn.addEventListener('click', handleExtractOcr);
+
+    // Unified prompt manager execute button
+    const executePromptBtn = document.getElementById('executePromptBtn');
+    if (executePromptBtn) {
+        executePromptBtn.addEventListener('click', function() {
+            console.log('Execute button clicked!');
+            console.log('currentPromptType:', currentPromptType);
+            console.log('currentDimensionPrompt:', currentDimensionPrompt);
+            console.log('currentPdfFile:', currentPdfFile);
+            executeUnifiedPrompt();
+        });
+    }
 });
 
 function handleFileSelect() {
@@ -137,6 +150,7 @@ async function uploadFile() {
         if (data.success) {
             currentPageCount = data.page_count;
             currentPage = 0;
+            currentPdfFile = file; // Store uploaded PDF file for unified prompt manager
 
             // Update PDF type badge
             const pdfTypeBadge = document.getElementById('pdfTypeBadge');
@@ -176,6 +190,11 @@ async function uploadFile() {
                     questionInput.disabled = false;
                 }
             });
+
+            // Update unified prompt manager button states
+            if (typeof updateUnifiedPromptButtons === 'function') {
+                updateUnifiedPromptButtons();
+            }
 
             // Display first page with boxes
             displayImage(data.page_image);
@@ -1303,6 +1322,25 @@ document.addEventListener('DOMContentLoaded', function() {
     setupUnifiedPromptFileUpload();
     loadDimensionPromptsListForUnified();
     loadDimensionPromptsForTemplateSelector();
+
+    // Initialize prompt type UI (fixes bug where extract button doesn't show initially)
+    switchPromptType('dimension');
+
+    // Add input event listeners to update button states
+    const unifiedPromptContent = document.getElementById('unifiedPromptContent');
+    const unifiedPromptName = document.getElementById('unifiedPromptName');
+    if (unifiedPromptContent) {
+        unifiedPromptContent.addEventListener('input', function() {
+            // Update currentDimensionPrompt when user types in dimension mode
+            if (currentPromptType === 'dimension') {
+                currentDimensionPrompt = unifiedPromptContent.value.trim();
+            }
+            updateUnifiedPromptButtons();
+        });
+    }
+    if (unifiedPromptName) {
+        unifiedPromptName.addEventListener('input', updateUnifiedPromptButtons);
+    }
 });
 
 function handleTemplateSelect(event) {
@@ -2215,10 +2253,10 @@ function updateButtonsBasedOnCapabilities(capabilities) {
 // UNIFIED PROMPT MANAGER
 // ============================================================================
 
-let currentPromptType = 'dimension'; // 'dimension' or 'template'
+let currentPromptType = 'dimension'; // 'dimension', 'template', or 'layout'
 
 /**
- * Switch between dimension and template prompt types
+ * Switch between dimension, template, and layout prompt types
  */
 function switchPromptType(type) {
     currentPromptType = type;
@@ -2247,7 +2285,7 @@ function switchPromptType(type) {
         templateLoadedInfo.style.display = 'none';
         textarea.placeholder = 'Es: Estrai dimensioni: lunghezza, larghezza, altezza...';
         promptNameInput.placeholder = 'Es: Dim. Meccaniche';
-    } else {
+    } else if (type === 'template') {
         // Template prompt mode
         icon.textContent = '📋';
         label.textContent = 'Prompt Template';
@@ -2267,6 +2305,19 @@ function switchPromptType(type) {
 
         textarea.placeholder = 'Carica un template da file o dalla libreria...';
         promptNameInput.placeholder = 'Es: Tabella Misure';
+    } else if (type === 'layout') {
+        // Layout analysis prompt mode
+        icon.textContent = '🗂️';
+        label.textContent = 'Prompt Layout';
+        description.textContent = 'Analizza il documento per identificare pagine con disegni e riconoscere layout a sezione singola o multipla';
+        summary.style.backgroundColor = '#e3f2fd';
+        summary.style.borderLeft = '4px solid #2196f3';
+        executeBtn.style.display = 'block';
+        executeBtn.textContent = '🗂️ Analizza PDF';
+        textarea.style.display = 'block';
+        templateLoadedInfo.style.display = 'none';
+        textarea.placeholder = 'Es: Analizza ogni pagina e indica se contiene un disegno. Se sì, specifica se è a sezione singola o multipla...';
+        promptNameInput.placeholder = 'Es: Analisi Layout Standard';
     }
 
     // Show/hide template list preview
@@ -2279,8 +2330,10 @@ function switchPromptType(type) {
     if (type === 'dimension') {
         loadDimensionPromptsListForUnified();
         updateTemplateLoadedInfo(''); // Clear template info when switching to dimensions
-    } else {
+    } else if (type === 'template') {
         loadTemplatePromptsListForUnified();
+    } else if (type === 'layout') {
+        loadLayoutPromptsListForUnified();
     }
 
     // Clear current selection and inputs
@@ -2296,19 +2349,25 @@ function switchPromptType(type) {
  */
 async function loadDimensionPromptsListForUnified() {
     try {
+        console.log('Loading dimension prompts list...');
         const response = await fetch('/get_dimension_prompts');
         const data = await response.json();
+        console.log('Dimension prompts response:', data);
 
         const select = document.getElementById('unifiedPromptSelect');
         select.innerHTML = '<option value="">-- Seleziona --</option>';
 
         if (data.success && data.prompts) {
+            console.log(`Found ${data.prompts.length} dimension prompts`);
             data.prompts.forEach(prompt => {
                 const option = document.createElement('option');
                 option.value = prompt.id;
                 option.textContent = prompt.name;
                 select.appendChild(option);
+                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id})`);
             });
+        } else {
+            console.warn('No dimension prompts found or success=false', data);
         }
     } catch (error) {
         console.error('Error loading dimension prompts:', error);
@@ -2362,6 +2421,36 @@ async function loadTemplatePromptsListForUnified() {
 }
 
 /**
+ * Load layout prompts list into unified selector
+ */
+async function loadLayoutPromptsListForUnified() {
+    try {
+        console.log('Loading layout prompts list...');
+        const response = await fetch('/get_layout_prompts');
+        const data = await response.json();
+        console.log('Layout prompts response:', data);
+
+        const select = document.getElementById('unifiedPromptSelect');
+        select.innerHTML = '<option value="">-- Seleziona --</option>';
+
+        if (data.success && data.prompts) {
+            console.log(`Found ${data.prompts.length} layout prompts`);
+            data.prompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.id;
+                option.textContent = prompt.name;
+                select.appendChild(option);
+                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id})`);
+            });
+        } else {
+            console.warn('No layout prompts found or success=false', data);
+        }
+    } catch (error) {
+        console.error('Error loading layout prompts:', error);
+    }
+}
+
+/**
  * Load selected prompt
  */
 async function loadUnifiedPrompt() {
@@ -2383,9 +2472,16 @@ async function loadUnifiedPrompt() {
             const data = await response.json();
 
             if (data.success) {
+                console.log('Loading dimension prompt:', data.prompt.name);
+                console.log('Prompt content length:', data.prompt.content.length);
+
                 document.getElementById('unifiedPromptContent').value = data.prompt.content;
                 document.getElementById('unifiedPromptName').value = data.prompt.name;
                 status.textContent = `✓ Prompt "${data.prompt.name}" caricato`;
+
+                // IMPORTANT: Update currentDimensionPrompt variable (fixes bug)
+                currentDimensionPrompt = data.prompt.content;
+                console.log('currentDimensionPrompt updated to:', currentDimensionPrompt.substring(0, 50) + '...');
 
                 // Also update the old dimension prompt input for compatibility
                 if (document.getElementById('dimensionPromptInput')) {
@@ -2394,7 +2490,7 @@ async function loadUnifiedPrompt() {
             } else {
                 status.textContent = '❌ ' + (data.error || 'Errore caricamento');
             }
-        } else {
+        } else if (currentPromptType === 'template') {
             // Load template
             const response = await fetch(`/get_template/${promptId}`);
             const data = await response.json();
@@ -2419,6 +2515,18 @@ async function loadUnifiedPrompt() {
                 if (document.getElementById('saveTemplateBtn')) {
                     document.getElementById('saveTemplateBtn').disabled = false;
                 }
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Errore caricamento');
+            }
+        } else if (currentPromptType === 'layout') {
+            // Load layout prompt
+            const response = await fetch(`/get_layout_prompt/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById('unifiedPromptContent').value = data.prompt.content;
+                document.getElementById('unifiedPromptName').value = data.prompt.name;
+                status.textContent = `✓ Prompt layout "${data.prompt.name}" caricato`;
             } else {
                 status.textContent = '❌ ' + (data.error || 'Errore caricamento');
             }
@@ -2530,7 +2638,7 @@ async function saveUnifiedPrompt() {
                     status.textContent = '❌ ' + errorMsg;
                 }
             }
-        } else {
+        } else if (currentPromptType === 'template') {
             // Save template
             if (!currentTemplate) {
                 alert('Carica prima un template');
@@ -2592,6 +2700,79 @@ async function saveUnifiedPrompt() {
                     status.textContent = '❌ ' + errorMsg;
                 }
             }
+        } else if (currentPromptType === 'layout') {
+            // Save layout prompt
+            const promptContent = document.getElementById('unifiedPromptContent').value.trim();
+
+            if (!promptContent) {
+                alert('Scrivi il contenuto del prompt layout');
+                return;
+            }
+
+            const response = await fetch('/save_layout_prompt', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: promptName,
+                    content: promptContent
+                })
+            });
+
+            const data = await response.json();
+            console.log('Save layout prompt response:', data);
+
+            if (data.success) {
+                status.textContent = `✓ Prompt layout "${promptName}" salvato`;
+
+                // Reload the layout prompts list
+                await loadLayoutPromptsListForUnified();
+
+                // Select the newly saved prompt in the dropdown
+                const select = document.getElementById('unifiedPromptSelect');
+                const promptId = data.prompt_id || data.id;
+                if (promptId && select) {
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === promptId) {
+                            select.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Clear file input but keep the content and name
+                document.getElementById('unifiedPromptFileInput').value = '';
+            } else {
+                // Check if it's a "already exists" error
+                const errorMsg = data.error || 'Errore salvataggio';
+                console.log('Error message:', errorMsg);
+
+                if (errorMsg.includes('già esistente') || errorMsg.includes('already exists')) {
+                    console.log('Duplicate detected, reloading list...');
+
+                    // Reload the list to show the existing prompt
+                    await loadLayoutPromptsListForUnified();
+
+                    // Try to select the existing prompt by name
+                    const select = document.getElementById('unifiedPromptSelect');
+                    if (select) {
+                        let found = false;
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].textContent === promptName) {
+                                select.selectedIndex = i;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            console.warn('Layout prompt not found in dropdown after reload');
+                        }
+                    }
+
+                    status.textContent = `ℹ️ Prompt layout "${promptName}" già esistente - selezionato automaticamente`;
+                } else {
+                    status.textContent = '❌ ' + errorMsg;
+                }
+            }
         }
     } catch (error) {
         status.textContent = '❌ Errore connessione';
@@ -2619,7 +2800,14 @@ async function deleteUnifiedPrompt() {
     try {
         status.textContent = '⏳ Eliminazione...';
 
-        const endpoint = currentPromptType === 'dimension' ? '/delete_dimension_prompt' : '/delete_template';
+        let endpoint;
+        if (currentPromptType === 'dimension') {
+            endpoint = '/delete_dimension_prompt';
+        } else if (currentPromptType === 'template') {
+            endpoint = '/delete_template';
+        } else if (currentPromptType === 'layout') {
+            endpoint = '/delete_layout_prompt';
+        }
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -2636,8 +2824,10 @@ async function deleteUnifiedPrompt() {
             if (currentPromptType === 'dimension') {
                 await loadDimensionPromptsListForUnified();
                 await loadDimensionPromptsForTemplateSelector();
-            } else {
+            } else if (currentPromptType === 'template') {
                 await loadTemplatePromptsListForUnified();
+            } else if (currentPromptType === 'layout') {
+                await loadLayoutPromptsListForUnified();
             }
 
             // Clear inputs
@@ -2680,7 +2870,7 @@ async function downloadUnifiedPrompt() {
                 alert('Errore: ' + (data.error || 'Impossibile scaricare il prompt'));
                 return;
             }
-        } else {
+        } else if (currentPromptType === 'template') {
             // Download template
             const response = await fetch(`/get_template/${promptId}`);
             const data = await response.json();
@@ -2690,6 +2880,18 @@ async function downloadUnifiedPrompt() {
                 filename = `${data.template.name}.txt`;
             } else {
                 alert('Errore: ' + (data.error || 'Impossibile scaricare il template'));
+                return;
+            }
+        } else if (currentPromptType === 'layout') {
+            // Download layout prompt
+            const response = await fetch(`/get_layout_prompt/${promptId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                content = data.prompt.content;
+                filename = `${data.prompt.name}.txt`;
+            } else {
+                alert('Errore: ' + (data.error || 'Impossibile scaricare il prompt layout'));
                 return;
             }
         }
@@ -2723,8 +2925,136 @@ async function executeUnifiedPrompt() {
         if (document.getElementById('dimensionPromptInput')) {
             document.getElementById('dimensionPromptInput').value = content;
         }
+        // IMPORTANT: Update currentDimensionPrompt variable (fixes bug where extract fails)
+        currentDimensionPrompt = content.trim();
         // Call the existing extractDimensions function
         await extractDimensions();
+    } else if (currentPromptType === 'layout') {
+        // Execute layout analysis
+        await analyzeDocumentLayout();
+    }
+}
+
+/**
+ * Analyze document layout (identify pages with drawings and their section type)
+ */
+async function analyzeDocumentLayout() {
+    const prompt = document.getElementById('unifiedPromptContent').value.trim();
+    const status = document.getElementById('unifiedPromptStatus');
+    const textList = document.getElementById('textList');
+
+    if (!prompt) {
+        alert('Scrivi prima un prompt per l\'analisi del layout');
+        return;
+    }
+
+    if (!currentPdfFile) {
+        alert('Carica prima un PDF');
+        return;
+    }
+
+    const providerName = document.getElementById('aiProviderSelect')?.selectedOptions[0]?.text || 'AI';
+
+    status.textContent = '⏳ Analisi documento in corso...';
+    textList.innerHTML = `<div class="ai-loading">🗂️ Analisi layout del documento con ${providerName}...<br><small>Questo potrebbe richiedere diversi minuti per documenti con molte pagine</small></div>`;
+
+    try {
+        const response = await fetch('/analyze_layout', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                prompt: prompt
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
+            status.textContent = '❌ Errore analisi layout';
+        } else if (data.success && data.analysis) {
+            const resultProviderName = data.provider || providerName;
+
+            textList.innerHTML = `
+                <div class="ai-result">
+                    <h3>🗂️ Analisi Layout Documento ${resultProviderName}</h3>
+                    <div style="margin: 10px 0; padding: 8px; background-color: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                        <strong>Pagine analizzate:</strong> ${data.pages_analyzed} / ${data.total_pages}
+                    </div>
+                    <div class="ai-result-item">
+                        <pre>${escapeHtml(data.analysis)}</pre>
+                    </div>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button class="btn" onclick="downloadLayoutAnalysis()" style="padding: 8px 16px; font-size: 12px; background-color: #27ae60;">
+                            💾 Scarica Analisi (.txt)
+                        </button>
+                    </div>
+                </div>
+            `;
+            status.textContent = `✓ Analisi completata (${data.pages_analyzed} pagine)`;
+
+            // Store result for download
+            window.currentLayoutAnalysis = {
+                analysis: data.analysis,
+                provider: resultProviderName,
+                promptName: document.getElementById('unifiedPromptName').value || 'layout',
+                pagesAnalyzed: data.pages_analyzed,
+                totalPages: data.total_pages
+            };
+        }
+    } catch (error) {
+        textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
+        status.textContent = '❌ Errore connessione';
+        console.error('Error analyzing layout:', error);
+    }
+}
+
+/**
+ * Download layout analysis results
+ */
+function downloadLayoutAnalysis() {
+    if (!window.currentLayoutAnalysis) {
+        alert('Nessuna analisi disponibile per il download');
+        return;
+    }
+
+    try {
+        const timestamp = new Date().toLocaleString('it-IT');
+        const promptName = window.currentLayoutAnalysis.promptName;
+
+        let fileContent = `=== ANALISI LAYOUT DOCUMENTO ===\n`;
+        fileContent += `Data: ${timestamp}\n`;
+        fileContent += `Prompt utilizzato: ${promptName}\n`;
+        fileContent += `Pagine analizzate: ${window.currentLayoutAnalysis.pagesAnalyzed} / ${window.currentLayoutAnalysis.totalPages}\n`;
+        fileContent += `Provider: ${window.currentLayoutAnalysis.provider}\n`;
+        fileContent += `\n${'='.repeat(60)}\n\n`;
+        fileContent += window.currentLayoutAnalysis.analysis;
+        fileContent += `\n\n${'='.repeat(60)}\n`;
+        fileContent += `\nAnalisi effettuata con ${window.currentLayoutAnalysis.provider}\n`;
+
+        // Create and download the file
+        const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // Generate filename with timestamp
+        const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `layout_${promptName.replace(/\s+/g, '_')}_${dateStr}.txt`;
+        a.download = filename;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        const status = document.getElementById('unifiedPromptStatus');
+        if (status) {
+            status.textContent = `✓ Download "${filename}" completato`;
+        }
+    } catch (error) {
+        alert('Errore durante il download: ' + error.message);
+        console.error('Error downloading layout analysis:', error);
     }
 }
 
@@ -2736,13 +3066,38 @@ function updateUnifiedPromptButtons() {
     const executeBtn = document.getElementById('executePromptBtn');
     const content = document.getElementById('unifiedPromptContent').value.trim();
     const nameInput = document.getElementById('unifiedPromptName').value.trim();
+    const status = document.getElementById('unifiedPromptStatus');
+
+    console.log('updateUnifiedPromptButtons called');
+    console.log('  currentPromptType:', currentPromptType);
+    console.log('  content length:', content.length);
+    console.log('  currentPdfFile:', currentPdfFile);
+    console.log('  currentDimensionPrompt:', currentDimensionPrompt);
 
     if (currentPromptType === 'dimension') {
         const hasContent = content.length > 0;
         saveBtn.disabled = !hasContent || !nameInput;
         executeBtn.disabled = !hasContent || !currentPdfFile;
-    } else {
+
+        console.log('  Dimension mode - executeBtn.disabled:', executeBtn.disabled);
+        console.log('  hasContent:', hasContent, 'currentPdfFile:', currentPdfFile);
+
+        // Show helpful message when extract button is disabled
+        if (executeBtn.disabled && hasContent && !currentPdfFile) {
+            if (status && status.textContent.indexOf('Carica prima un PDF') === -1) {
+                status.textContent = '⚠️ Carica prima un PDF per estrarre dimensioni';
+                status.style.color = '#ff9800';
+            }
+        } else if (!executeBtn.disabled && status && status.textContent.indexOf('Carica prima un PDF') !== -1) {
+            status.textContent = '';
+            status.style.color = '';
+        }
+    } else if (currentPromptType === 'template') {
         saveBtn.disabled = !currentTemplate || !nameInput;
+    } else if (currentPromptType === 'layout') {
+        const hasContent = content.length > 0;
+        saveBtn.disabled = !hasContent || !nameInput;
+        executeBtn.disabled = !hasContent || !currentPdfFile;
     }
 }
 
@@ -2770,7 +3125,7 @@ function setupUnifiedPromptFileUpload() {
                     document.getElementById('unifiedPromptName').value = suggestedName;
 
                     status.textContent = `✓ File "${file.name}" caricato`;
-                } else {
+                } else if (currentPromptType === 'template') {
                     currentTemplate = text;
                     document.getElementById('unifiedPromptContent').style.display = 'none';
                     document.getElementById('templateLoadedInfo').style.display = 'block';
@@ -2789,6 +3144,14 @@ function setupUnifiedPromptFileUpload() {
                     if (document.getElementById('saveTemplateBtn')) {
                         document.getElementById('saveTemplateBtn').disabled = false;
                     }
+                } else if (currentPromptType === 'layout') {
+                    document.getElementById('unifiedPromptContent').value = text;
+
+                    // Auto-populate name field with filename (without .txt extension)
+                    const suggestedName = file.name.replace(/\.txt$/i, '');
+                    document.getElementById('unifiedPromptName').value = suggestedName;
+
+                    status.textContent = `✓ File prompt layout "${file.name}" caricato`;
                 }
 
                 updateUnifiedPromptButtons();

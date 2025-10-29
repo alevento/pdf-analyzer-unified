@@ -571,6 +571,13 @@ class AIProviderManager:
         from dotenv import load_dotenv
         load_dotenv()
 
+        # Gemini (DEFAULT PROVIDER)
+        gemini_key = os.environ.get('GEMINI_API_KEY', '')
+        if gemini_key:
+            self.providers['gemini'] = GeminiProvider(gemini_key)
+            if self.current_provider is None:
+                self.current_provider = 'gemini'
+
         # Claude Opus 4.1
         anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
         if anthropic_key:
@@ -590,13 +597,6 @@ class AIProviderManager:
             self.providers['openai'] = OpenAIProvider(openai_key)
             if self.current_provider is None:
                 self.current_provider = 'openai'
-
-        # Gemini
-        gemini_key = os.environ.get('GEMINI_API_KEY', '')
-        if gemini_key:
-            self.providers['gemini'] = GeminiProvider(gemini_key)
-            if self.current_provider is None:
-                self.current_provider = 'gemini'
 
         # Novita AI
         novita_key = os.environ.get('NOVITA_API_KEY', '')

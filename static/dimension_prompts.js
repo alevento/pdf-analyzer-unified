@@ -53,18 +53,28 @@ async function extractDimensions() {
         return;
     }
 
-    const dimensionStatus = document.getElementById('dimensionStatus');
-    const extractBtn = document.getElementById('extractDimensionsBtn');
+    // Try to find status and button elements (may be from unified or legacy UI)
+    const dimensionStatus = document.getElementById('dimensionStatus') || document.getElementById('unifiedPromptStatus');
+    const extractBtn = document.getElementById('extractDimensionsBtn') || document.getElementById('executePromptBtn');
     const textList = document.getElementById('textList');
 
     const providerName = document.getElementById('aiProviderSelect')?.selectedOptions[0]?.text || 'AI';
 
-    extractBtn.disabled = true;
-    dimensionStatus.textContent = '⏳ Estrazione in corso...';
-    textList.innerHTML = `<div class="ai-loading">📐 Estrazione dimensioni con ${providerName}...</div>`;
+    if (extractBtn) {
+        extractBtn.disabled = true;
+    }
+    if (dimensionStatus) {
+        dimensionStatus.textContent = '⏳ Estrazione in corso...';
+    }
+    if (textList) {
+        textList.innerHTML = `<div class="ai-loading">📐 Estrazione dimensioni con ${providerName}...</div>`;
+    }
 
     // Hide download buttons for dimension extraction (text-based)
-    document.getElementById('downloadButtons').style.display = 'none';
+    const downloadButtons = document.getElementById('downloadButtons');
+    if (downloadButtons) {
+        downloadButtons.style.display = 'none';
+    }
     currentDisplayData = null;
 
     try {
@@ -80,8 +90,12 @@ async function extractDimensions() {
         const data = await response.json();
 
         if (data.error) {
-            textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
-            dimensionStatus.textContent = '❌ Errore estrazione';
+            if (textList) {
+                textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${data.error}</div>`;
+            }
+            if (dimensionStatus) {
+                dimensionStatus.textContent = '❌ Errore estrazione';
+            }
             currentExtractedDimensions = null;
         } else if (data.success && data.dimensions) {
             // Store extracted dimensions and provider name for download
@@ -89,28 +103,44 @@ async function extractDimensions() {
             const resultProviderName = data.provider || providerName;
             currentProviderName = resultProviderName;
 
-            textList.innerHTML = `
-                <div class="ai-result">
-                    <h3>📐 Dimensioni Estratte ${resultProviderName}</h3>
-                    <div class="ai-result-item">
-                        <pre>${escapeHtml(data.dimensions)}</pre>
+            if (textList) {
+                textList.innerHTML = `
+                    <div class="ai-result">
+                        <h3>📐 Dimensioni Estratte ${resultProviderName}</h3>
+                        <div class="ai-result-item">
+                            <pre>${escapeHtml(data.dimensions)}</pre>
+                        </div>
+                        <div style="margin-top: 10px; text-align: center;">
+                            <button class="btn" onclick="downloadExtractedDimensions()" style="padding: 8px 16px; font-size: 12px; background-color: #27ae60;">
+                                💾 Scarica Dimensioni (.txt)
+                            </button>
+                        </div>
                     </div>
-                    <div style="margin-top: 10px; text-align: center;">
-                        <button class="btn" onclick="downloadExtractedDimensions()" style="padding: 8px 16px; font-size: 12px; background-color: #27ae60;">
-                            💾 Scarica Dimensioni (.txt)
-                        </button>
-                    </div>
-                </div>
-            `;
-            dimensionStatus.textContent = '✓ Estrazione completata';
-            status.textContent = 'Estrazione dimensioni completata';
+                `;
+            }
+            if (dimensionStatus) {
+                dimensionStatus.textContent = '✓ Estrazione completata';
+            }
+            const mainStatus = document.getElementById('status');
+            if (mainStatus) {
+                mainStatus.textContent = 'Estrazione dimensioni completata';
+            }
         }
     } catch (error) {
-        textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
-        dimensionStatus.textContent = '❌ Errore connessione';
-        status.textContent = 'Errore estrazione dimensioni';
+        if (textList) {
+            textList.innerHTML = `<div class="ai-error"><strong>Errore:</strong> ${error.message}</div>`;
+        }
+        if (dimensionStatus) {
+            dimensionStatus.textContent = '❌ Errore connessione';
+        }
+        const mainStatus = document.getElementById('status');
+        if (mainStatus) {
+            mainStatus.textContent = 'Errore estrazione dimensioni';
+        }
     } finally {
-        extractBtn.disabled = false;
+        if (extractBtn) {
+            extractBtn.disabled = false;
+        }
     }
 }
 
@@ -124,6 +154,11 @@ async function loadDimensionPromptsList() {
         if (response.ok) {
             const data = await response.json();
             const select = document.getElementById('savedDimensionPromptsSelect');
+
+            // Check if element exists (may not exist if using unified prompt manager)
+            if (!select) {
+                return;
+            }
 
             // Clear existing options except first
             select.innerHTML = '<option value="">-- Seleziona un prompt --</option>';

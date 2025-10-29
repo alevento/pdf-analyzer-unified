@@ -1,6 +1,199 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.56 (2025-10-29)
+### Auto-Analisi Layout per PDF Multi-Pagina
+Implementata analisi layout automatica al caricamento di PDF con più pagine quando esiste un prompt layout predefinito.
+
+### Funzionalità
+Quando viene caricato un PDF con più di 1 pagina e esiste un prompt di layout contrassegnato come predefinito (⭐):
+1. **Rilevamento Automatico**: Il sistema rileva automaticamente che è un PDF multi-pagina
+2. **Verifica Prompt Predefinito**: Controlla se esiste un prompt layout predefinito
+3. **Analisi Automatica**: Esegue l'analisi layout su tutte le pagine usando il prompt predefinito
+4. **Risultati Immediati**: I risultati vengono mostrati immediatamente dopo il caricamento
+
+### Esperienza Utente
+**Prima (v0.55):**
+```
+1. Carica PDF multi-pagina
+2. Vai nella sezione Layout
+3. Seleziona manualmente il prompt
+4. Clicca "Analizza PDF"
+5. Attendi i risultati
+```
+
+**Dopo (v0.56):**
+```
+1. Carica PDF multi-pagina
+2. ✅ Analisi layout automatica già completata!
+```
+
+### Dettagli Tecnici
+
+**Backend (unified_app.py):**
+- Modificata funzione `upload_file()` (righe 1591-1652)
+- Controlla `page_count > 1` dopo caricamento PDF
+- Cerca prompt layout con `is_default: True`
+- Esegue analisi su tutte le pagine con AI provider corrente
+- Gestisce errori per pagina senza bloccare l'upload
+- Restituisce risultati in JSON: `auto_layout_executed`, `layout_analysis`
+
+**Frontend (unified.js):**
+- Modificata funzione `uploadFile()` (righe 235-276)
+- Controlla flag `data.auto_layout_executed`
+- Mostra risultati in box colorato con icona 🗂️
+- Lista pagine con analisi o errori per pagina
+- Aggiorna status con conteggio pagine analizzate
+
+### Struttura Risultati
+```json
+{
+  "auto_layout_executed": true,
+  "layout_analysis": {
+    "prompt_name": "Nome del prompt usato",
+    "prompt_id": "uuid",
+    "provider": "Claude Opus 4",
+    "results": [
+      {
+        "page": 1,
+        "analysis": "Questa pagina contiene un disegno tecnico..."
+      },
+      {
+        "page": 2,
+        "error": "Timeout durante l'analisi"
+      }
+    ]
+  }
+}
+```
+
+### UI Miglioramenti
+- Box blu distintivo per risultati auto-analisi
+- Intestazione con emoji 🗂️
+- Info prompt e provider utilizzati
+- Scroll automatico per documenti lunghi
+- Errori per pagina mostrati chiaramente in rosso
+
+### File Modificati
+- `unified_app.py`: Funzione `upload_file()` con logica auto-analisi (righe 1591-1668)
+- `static/unified.js`: Funzione `uploadFile()` con visualizzazione risultati (righe 235-276)
+
+### Vantaggi
+- ⚡ **Risparmio Tempo**: Analisi automatica, nessun click manuale necessario
+- 🎯 **Zero Configurazione**: Funziona immediatamente se hai un prompt predefinito
+- 🔄 **Processo Unificato**: Upload + analisi in un solo passaggio
+- 💡 **Feedback Immediato**: Vedi subito quali pagine hanno disegni
+- 🛡️ **Resiliente**: Errori su singole pagine non bloccano l'intero processo
+
+### Note
+- Funziona solo con PDF multi-pagina (>1 pagina)
+- Richiede un prompt layout contrassegnato come predefinito (⭐)
+- Usa il provider AI attualmente selezionato
+- Tempo di caricamento aumentato proporzionalmente al numero di pagine
+
+
+## v0.55 (2025-10-29)
+### Fix: Template non compaiono nella lista
+Corretto bug che impediva la visualizzazione dei template salvati nel gestore prompt unificato.
+
+### Problema
+Dopo aver salvato un template per la generazione di file Excel, questo non compariva nella lista dei prompt salvati e non era possibile selezionarlo dal dropdown.
+
+### Causa
+L'endpoint `/get_templates` restituiva solo:
+```python
+return jsonify({'templates': [...]})
+```
+
+Ma il frontend controllava:
+```javascript
+if (data.success && data.templates) {  // ❌ data.success è undefined
+```
+
+Tutti gli altri endpoint (dimension, layout) restituiscono `{'success': True, ...}`, ma questo era inconsistente.
+
+### Soluzione
+Aggiunto campo `success: True` alla risposta dell'endpoint `/get_templates`:
+```python
+return jsonify({'success': True, 'templates': [...]})
+```
+
+### File Modificati
+- `unified_app.py`: Endpoint `/get_templates` (righe 2601, 2606)
+
+### Impatto
+✅ I template salvati ora compaiono correttamente nella lista
+✅ È possibile selezionare e caricare i template
+✅ Comportamento coerente con dimension e layout prompts
+
+
+## v0.54 (2025-10-29)
+### Gestione Prompt Predefiniti
+Aggiunta possibilità di definire un prompt predefinito per ogni tipologia (dimensioni, layout, template) che viene precaricato automaticamente all'apertura della sezione.
+
+### Funzionalità Implementate
+1. **Indicatore Visivo Prompt Predefinito**: Stella ⭐ mostrata accanto al nome del prompt predefinito nei dropdown
+2. **Pulsante Imposta Predefinito**: Nuovo pulsante ⭐ arancione nella sezione di gestione prompt per impostare rapidamente un prompt come predefinito
+3. **Precaricamento Automatico**: Quando si cambia tipo di prompt (Dimensioni/Layout/Template), il prompt predefinito viene caricato automaticamente
+4. **Gestione Multi-Tipo**: Sistema unificato che funziona per tutti e tre i tipi di prompt (dimension, layout, template)
+
+### Endpoint Backend Aggiunti
+- `POST /set_default_prompt/<prompt_type>/<prompt_id>`: Imposta un prompt come predefinito per il suo tipo
+- `POST /remove_default_prompt/<prompt_type>`: Rimuove lo stato predefinito da tutti i prompt di un tipo
+- `GET /get_default_prompt/<prompt_type>`: Ottiene il prompt predefinito per un tipo specifico
+- Funzione helper `get_prompts_file_path(prompt_type)`: Gestisce i percorsi dei file per tutti i tipi di prompt
+
+### Modifiche Frontend
+**unified.js:**
+- `loadDimensionPromptsListForUnified()`: Aggiunta stella ⭐ per prompt predefiniti
+- `loadTemplatePromptsListForUnified()`: Aggiunta stella ⭐ per template predefiniti e nella lista visibile
+- `loadLayoutPromptsListForUnified()`: Aggiunta stella ⭐ per prompt predefiniti
+- `loadDefaultPromptForType(promptType)`: Nuova funzione per caricare automaticamente il prompt predefinito
+- `switchPromptType(type)`: Modificata per chiamare precaricamento dopo il caricamento della lista
+- `setUnifiedPromptAsDefault()`: Nuova funzione per impostare un prompt come predefinito tramite UI
+
+**unified.html:**
+- Aggiunto pulsante ⭐ arancione nella sezione "Prompt Salvati" con tooltip "Imposta come predefinito"
+
+### Struttura Dati
+I prompt salvati ora includono il campo `is_default`:
+```json
+{
+  "prompts": [
+    {
+      "id": "uuid",
+      "name": "Nome Prompt",
+      "content": "contenuto...",
+      "created_at": "timestamp",
+      "is_default": true
+    }
+  ]
+}
+```
+
+### Workflow Utente
+1. **Impostare Predefinito**:
+   - Selezionare un prompt dalla lista
+   - Cliccare pulsante ⭐ arancione
+   - Il prompt viene contrassegnato con stella ⭐ nella lista
+
+2. **Uso Automatico**:
+   - Cambiare tipo di prompt (es. da Dimensioni a Layout)
+   - Il prompt predefinito per quel tipo viene caricato automaticamente
+   - Non serve più selezionarlo manualmente ogni volta
+
+### File Modificati
+- `unified_app.py`: Aggiunti endpoint per gestione prompt predefiniti (righe 3003-3132)
+- `static/unified.js`: Modificate funzioni di caricamento liste e aggiunta gestione predefiniti
+- `templates/unified.html`: Aggiunto pulsante ⭐ per impostazione predefinito (riga 892)
+
+### Benefici
+- ✅ Flusso di lavoro più rapido: prompt preferiti sempre pronti
+- ✅ Riduzione errori: prompt corretto caricato automaticamente
+- ✅ Consistenza: stessa esperienza su tutti i tipi di prompt
+- ✅ Visibilità: stella mostra chiaramente quale è il prompt predefinito
+
+
 ## v0.53 (2025-10-29)
 ### Miglioramenti UI e configurazione
 Aumentata dimensione font e impostato Gemini come provider predefinito

@@ -231,6 +231,49 @@ async function uploadFile() {
                 textList.innerHTML = '<pre style="padding: 15px; font-size: 11px; line-height: 1.4;">' + data.full_text + '</pre>';
                 status.textContent = `PDF caricato: ${data.page_count} pagine, tipo ${data.pdf_type}`;
             }
+
+            // Mostra risultati analisi layout automatica se eseguita
+            if (data.auto_layout_executed && data.layout_analysis) {
+                console.log('Auto-analisi layout eseguita:', data.layout_analysis);
+
+                const analysisHtml = `
+                    <div class="ai-result" style="margin-top: 15px; border-top: 2px solid #2196f3; padding-top: 15px;">
+                        <h3 style="color: #2196f3; margin-bottom: 10px;">
+                            🗂️ Analisi Layout Automatica
+                        </h3>
+                        <div style="background-color: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                            <strong>Prompt:</strong> ${escapeHtml(data.layout_analysis.prompt_name)}<br>
+                            <strong>Provider:</strong> ${escapeHtml(data.layout_analysis.provider)}<br>
+                            <strong>Pagine analizzate:</strong> ${data.layout_analysis.results.length}
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${data.layout_analysis.results.map(result => {
+                                if (result.error) {
+                                    return `
+                                        <div class="ai-result-item" style="border-left: 3px solid #f44336;">
+                                            <strong>Pagina ${result.page}:</strong>
+                                            <div style="color: #f44336; margin-top: 5px;">❌ Errore: ${escapeHtml(result.error)}</div>
+                                        </div>
+                                    `;
+                                } else {
+                                    return `
+                                        <div class="ai-result-item" style="border-left: 3px solid #2196f3;">
+                                            <strong>Pagina ${result.page}:</strong>
+                                            <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(result.analysis)}</pre>
+                                        </div>
+                                    `;
+                                }
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+
+                // Aggiungi i risultati al textList
+                textList.innerHTML = (textList.innerHTML || '') + analysisHtml;
+
+                // Aggiorna lo status
+                status.textContent = `PDF caricato con analisi layout automatica completata (${data.layout_analysis.results.length} pagine)`;
+            }
         } else {
             status.textContent = 'Errore: ' + (data.error || 'Errore sconosciuto');
             imageContainer.innerHTML = '<p class="placeholder">Errore durante il caricamento</p>';
@@ -2326,17 +2369,17 @@ function switchPromptType(type) {
         templateListPreview.style.display = (type === 'template') ? 'block' : 'none';
     }
 
-    // Reload the appropriate prompt list
+    // Reload the appropriate prompt list and load default prompt
     if (type === 'dimension') {
-        loadDimensionPromptsListForUnified();
+        loadDimensionPromptsListForUnified().then(() => loadDefaultPromptForType('dimension'));
         updateTemplateLoadedInfo(''); // Clear template info when switching to dimensions
     } else if (type === 'template') {
-        loadTemplatePromptsListForUnified();
+        loadTemplatePromptsListForUnified().then(() => loadDefaultPromptForType('template'));
     } else if (type === 'layout') {
-        loadLayoutPromptsListForUnified();
+        loadLayoutPromptsListForUnified().then(() => loadDefaultPromptForType('layout'));
     }
 
-    // Clear current selection and inputs
+    // Clear current selection and inputs (will be overwritten by default prompt if exists)
     document.getElementById('unifiedPromptSelect').value = '';
     document.getElementById('unifiedPromptName').value = '';
     document.getElementById('unifiedPromptContent').value = '';
@@ -2362,9 +2405,11 @@ async function loadDimensionPromptsListForUnified() {
             data.prompts.forEach(prompt => {
                 const option = document.createElement('option');
                 option.value = prompt.id;
-                option.textContent = prompt.name;
+                // Add star emoji for default prompt
+                const prefix = prompt.is_default ? '⭐ ' : '';
+                option.textContent = prefix + prompt.name;
                 select.appendChild(option);
-                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id})`);
+                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id}, Default: ${prompt.is_default})`);
             });
         } else {
             console.warn('No dimension prompts found or success=false', data);
@@ -2392,7 +2437,9 @@ async function loadTemplatePromptsListForUnified() {
             data.templates.forEach(template => {
                 const option = document.createElement('option');
                 option.value = template.id;
-                option.textContent = template.name;
+                // Add star emoji for default template
+                const prefix = template.is_default ? '⭐ ' : '';
+                option.textContent = prefix + template.name;
                 select.appendChild(option);
             });
 
@@ -2401,9 +2448,10 @@ async function loadTemplatePromptsListForUnified() {
                 if (data.templates.length === 0) {
                     templateListContainer.innerHTML = '<div style="font-style: italic; color: #6c757d;">Nessun template salvato</div>';
                 } else {
-                    templateListContainer.innerHTML = data.templates.map(template =>
-                        `<div style="padding: 3px 0; border-bottom: 1px solid #e9ecef;">📋 ${template.name}</div>`
-                    ).join('');
+                    templateListContainer.innerHTML = data.templates.map(template => {
+                        const prefix = template.is_default ? '⭐ ' : '';
+                        return `<div style="padding: 3px 0; border-bottom: 1px solid #e9ecef;">${prefix}📋 ${template.name}</div>`;
+                    }).join('');
                 }
             }
         } else {
@@ -2438,15 +2486,63 @@ async function loadLayoutPromptsListForUnified() {
             data.prompts.forEach(prompt => {
                 const option = document.createElement('option');
                 option.value = prompt.id;
-                option.textContent = prompt.name;
+                // Add star emoji for default prompt
+                const prefix = prompt.is_default ? '⭐ ' : '';
+                option.textContent = prefix + prompt.name;
                 select.appendChild(option);
-                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id})`);
+                console.log(`Added prompt: ${prompt.name} (ID: ${prompt.id}, Default: ${prompt.is_default})`);
             });
         } else {
             console.warn('No layout prompts found or success=false', data);
         }
     } catch (error) {
         console.error('Error loading layout prompts:', error);
+    }
+}
+
+/**
+ * Load default prompt for a specific type
+ */
+async function loadDefaultPromptForType(promptType) {
+    try {
+        console.log(`Loading default prompt for type: ${promptType}`);
+        const response = await fetch(`/get_default_prompt/${promptType}`);
+        const data = await response.json();
+
+        if (data.success && data.default_prompt) {
+            const defaultPrompt = data.default_prompt;
+            console.log(`Found default prompt: ${defaultPrompt.name}`);
+
+            // Set the prompt content
+            const contentArea = document.getElementById('unifiedPromptContent');
+            const nameInput = document.getElementById('unifiedPromptName');
+            const selectDropdown = document.getElementById('unifiedPromptSelect');
+            const status = document.getElementById('unifiedPromptStatus');
+
+            if (contentArea) contentArea.value = defaultPrompt.content;
+            if (nameInput) nameInput.value = defaultPrompt.name;
+            if (selectDropdown) selectDropdown.value = defaultPrompt.id;
+            if (status) status.textContent = `✓ Prompt predefinito "${defaultPrompt.name}" caricato`;
+
+            // Update current prompt variables based on type
+            if (promptType === 'dimension') {
+                currentDimensionPrompt = defaultPrompt.content;
+            } else if (promptType === 'template') {
+                currentTemplate = defaultPrompt.content;
+            }
+
+            // Update button states
+            updateUnifiedPromptButtons();
+
+            // Show info for template type
+            if (promptType === 'template') {
+                updateTemplateLoadedInfo(defaultPrompt.name);
+            }
+        } else {
+            console.log(`No default prompt found for type: ${promptType}`);
+        }
+    } catch (error) {
+        console.error(`Error loading default prompt for type ${promptType}:`, error);
     }
 }
 
@@ -2840,6 +2936,52 @@ async function deleteUnifiedPrompt() {
     } catch (error) {
         status.textContent = '❌ Errore connessione';
         console.error('Error deleting prompt:', error);
+    }
+}
+
+/**
+ * Set selected prompt as default
+ */
+async function setUnifiedPromptAsDefault() {
+    const select = document.getElementById('unifiedPromptSelect');
+    const promptId = select.value;
+    const status = document.getElementById('unifiedPromptStatus');
+
+    if (!promptId) {
+        alert('Seleziona un prompt dalla lista');
+        return;
+    }
+
+    try {
+        status.textContent = '⏳ Impostazione predefinito...';
+
+        const response = await fetch(`/set_default_prompt/${currentPromptType}/${promptId}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            status.textContent = '✓ Prompt impostato come predefinito';
+
+            // Reload appropriate list to show star
+            if (currentPromptType === 'dimension') {
+                await loadDimensionPromptsListForUnified();
+                await loadDimensionPromptsForTemplateSelector();
+            } else if (currentPromptType === 'template') {
+                await loadTemplatePromptsListForUnified();
+            } else if (currentPromptType === 'layout') {
+                await loadLayoutPromptsListForUnified();
+            }
+
+            // Keep current selection
+            select.value = promptId;
+        } else {
+            status.textContent = '❌ ' + (data.error || 'Errore impostazione');
+        }
+    } catch (error) {
+        status.textContent = '❌ Errore connessione';
+        console.error('Error setting default prompt:', error);
     }
 }
 

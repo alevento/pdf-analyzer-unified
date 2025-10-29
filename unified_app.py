@@ -1588,6 +1588,69 @@ def upload_file():
             type_counts = {}
             all_numbers = []
 
+        # Auto-analisi layout per PDF multi-pagina se esiste prompt predefinito
+        layout_analysis = None
+        auto_layout_executed = False
+
+        if page_count > 1:
+            try:
+                # Controlla se esiste un prompt layout predefinito
+                layout_prompts_file = os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+
+                if os.path.exists(layout_prompts_file):
+                    with open(layout_prompts_file, 'r', encoding='utf-8') as f:
+                        layout_data = json.load(f)
+
+                    # Trova il prompt predefinito
+                    default_prompt = None
+                    for prompt in layout_data.get('prompts', []):
+                        if prompt.get('is_default', False):
+                            default_prompt = prompt
+                            break
+
+                    if default_prompt:
+                        print(f"PDF multi-pagina rilevato ({page_count} pagine) - Esecuzione auto-analisi layout con prompt predefinito: {default_prompt['name']}")
+
+                        # Esegui analisi layout
+                        current_provider = ai_manager.get_current_provider()
+                        if current_provider:
+                            provider_name = ai_manager.get_current_provider_name()
+
+                            # Analizza tutte le pagine
+                            results = []
+                            for page_num in range(page_count):
+                                page_image_b64 = processor.get_page_image(page_num=page_num)
+
+                                try:
+                                    analysis = current_provider.analyze_vision(
+                                        default_prompt['content'],
+                                        page_image_b64
+                                    )
+                                    results.append({
+                                        'page': page_num + 1,
+                                        'analysis': analysis
+                                    })
+                                except Exception as e:
+                                    print(f"Errore analisi pagina {page_num + 1}: {str(e)}")
+                                    results.append({
+                                        'page': page_num + 1,
+                                        'error': str(e)
+                                    })
+
+                            layout_analysis = {
+                                'prompt_name': default_prompt['name'],
+                                'prompt_id': default_prompt['id'],
+                                'provider': provider_name,
+                                'results': results
+                            }
+                            auto_layout_executed = True
+                            print(f"Auto-analisi layout completata con {provider_name}")
+
+            except Exception as e:
+                import traceback
+                print(f"Errore durante auto-analisi layout: {traceback.format_exc()}")
+                # Non bloccare l'upload se l'analisi layout fallisce
+
         return jsonify({
             'success': True,
             'pdf_type': pdf_type,
@@ -1599,7 +1662,9 @@ def upload_file():
             'numbers': all_numbers,
             'numbers_count': numbers_count,
             'extraction_method': extraction_method,
-            'type_counts': type_counts
+            'type_counts': type_counts,
+            'auto_layout_executed': auto_layout_executed,
+            'layout_analysis': layout_analysis
         })
 
     return jsonify({'error': 'Invalid file type'}), 400
@@ -2598,12 +2663,12 @@ def get_templates():
         templates_file = os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
 
         if not os.path.exists(templates_file):
-            return jsonify({'templates': []})
+            return jsonify({'success': True, 'templates': []})
 
         with open(templates_file, 'r', encoding='utf-8') as f:
             templates_data = json.load(f)
 
-        return jsonify({'templates': templates_data.get('templates', [])})
+        return jsonify({'success': True, 'templates': templates_data.get('templates', [])})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2997,6 +3062,137 @@ def delete_layout_prompt(prompt_id):
     except Exception as e:
         import traceback
         print(f"Errore eliminazione prompt layout: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# DEFAULT PROMPT MANAGEMENT (Generic for all prompt types)
+# ============================================================================
+
+def get_prompts_file_path(prompt_type):
+    """Get the file path for a prompt type"""
+    if prompt_type == 'dimension':
+        return os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+    elif prompt_type == 'layout':
+        return os.path.join(app.config['LAYOUT_PROMPTS_FOLDER'], 'layout_prompts.json')
+    elif prompt_type == 'template':
+        return os.path.join(app.config['TEMPLATES_FOLDER'], 'templates.json')
+    else:
+        return None
+
+@app.route('/set_default_prompt/<prompt_type>/<prompt_id>', methods=['POST'])
+def set_default_prompt(prompt_type, prompt_id):
+    """Set a prompt as default for its type"""
+    try:
+        prompts_file = get_prompts_file_path(prompt_type)
+        if not prompts_file:
+            return jsonify({'error': 'Tipo prompt non valido'}), 400
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'error': 'File prompt non trovato'}), 404
+
+        # Load prompts
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Get key name (templates vs prompts)
+        key = 'templates' if prompt_type == 'template' else 'prompts'
+
+        # Find the prompt and update defaults
+        prompt_found = False
+        for prompt in prompts_data[key]:
+            if prompt['id'] == prompt_id:
+                prompt['is_default'] = True
+                prompt_found = True
+            else:
+                prompt['is_default'] = False
+
+        if not prompt_found:
+            return jsonify({'error': 'Prompt non trovato'}), 404
+
+        # Save updated prompts
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'message': 'Prompt predefinito impostato'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore impostazione prompt predefinito: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/remove_default_prompt/<prompt_type>', methods=['POST'])
+def remove_default_prompt(prompt_type):
+    """Remove default status from all prompts of a type"""
+    try:
+        prompts_file = get_prompts_file_path(prompt_type)
+        if not prompts_file:
+            return jsonify({'error': 'Tipo prompt non valido'}), 400
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'success': True})  # No file means no defaults
+
+        # Load prompts
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Get key name (templates vs prompts)
+        key = 'templates' if prompt_type == 'template' else 'prompts'
+
+        # Remove all defaults
+        for prompt in prompts_data[key]:
+            prompt['is_default'] = False
+
+        # Save updated prompts
+        with open(prompts_file, 'w', encoding='utf-8') as f:
+            json.dump(prompts_data, f, ensure_ascii=False, indent=2)
+
+        return jsonify({
+            'success': True,
+            'message': 'Prompt predefinito rimosso'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Errore rimozione prompt predefinito: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_default_prompt/<prompt_type>', methods=['GET'])
+def get_default_prompt(prompt_type):
+    """Get the default prompt for a type"""
+    try:
+        prompts_file = get_prompts_file_path(prompt_type)
+        if not prompts_file:
+            return jsonify({'error': 'Tipo prompt non valido'}), 400
+
+        if not os.path.exists(prompts_file):
+            return jsonify({'success': True, 'default_prompt': None})
+
+        # Load prompts
+        with open(prompts_file, 'r', encoding='utf-8') as f:
+            prompts_data = json.load(f)
+
+        # Get key name (templates vs prompts)
+        key = 'templates' if prompt_type == 'template' else 'prompts'
+
+        # Find default prompt
+        default_prompt = None
+        for prompt in prompts_data[key]:
+            if prompt.get('is_default', False):
+                default_prompt = prompt
+                break
+
+        return jsonify({
+            'success': True,
+            'default_prompt': default_prompt
+        })
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 

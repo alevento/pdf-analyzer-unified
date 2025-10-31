@@ -1,6 +1,168 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.66 (2025-10-31)
+### Progress Indicator Moderno con Timer in Tempo Reale
+Interfaccia visuale moderna e accattivante per monitorare il progresso di elaborazione dei PDF in tempo reale.
+
+### Problema
+L'utente non aveva feedback visuale durante l'elaborazione:
+- ❌ Nessuna indicazione visuale del progresso
+- ❌ Tempo trascorso non visibile durante l'elaborazione
+- ❌ Tempo stimato non mostrato durante il processo
+- ❌ Interfaccia poco professionale e moderna
+
+### Soluzione
+Implementato progress indicator moderno con design accattivante e professionale che mostra:
+1. **Timer in tempo reale**: Aggiornato ogni 100ms per mostrare il tempo trascorso
+2. **Tempo stimato**: Calcolato basandosi sulle statistiche storiche e il numero di pagine
+3. **Progress bar animata**: Con effetto shine e gradiente colorato
+4. **Messaggi di stato**: Feedback testuale durante le varie fasi
+
+**1. HTML Progress Container (unified.html righe 610-628)**:
+```html
+<!-- Progress Indicator -->
+<div class="progress-container" id="progressContainer" style="display: none;">
+    <div class="progress-header">
+        <div class="progress-info">
+            <span class="progress-label">Elaborazione in corso...</span>
+            <span class="progress-stats">
+                <span class="time-elapsed">⏱️ <span id="timeElapsed">0.0</span>s</span>
+                <span class="time-divider">|</span>
+                <span class="time-estimated">📊 Stimato: <span id="timeEstimated">--</span>s</span>
+            </span>
+        </div>
+    </div>
+    <div class="progress-bar-bg">
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-shine"></div>
+        </div>
+    </div>
+    <div class="progress-message" id="progressMessage">Preparazione...</div>
+</div>
+```
+
+**2. CSS Moderno con Gradiente e Animazioni (unified.html righe 475-611)**:
+```css
+/* Modern Progress Indicator */
+.progress-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 15px;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    animation: slideDown 0.4s ease-out;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #4ade80, #22c55e, #16a34a);
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.progress-shine {
+    animation: shine 2s infinite;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shine {
+    0% { left: -100%; }
+    100% { left: 200%; }
+}
+```
+
+**3. Timer in Tempo Reale (unified.js righe 313-326)**:
+```javascript
+// Start real-time timer update
+progressTimerInterval = setInterval(() => {
+    const elapsed = (performance.now() - uploadStartTime) / 1000;
+    timeElapsed.textContent = elapsed.toFixed(1);
+
+    // Update progress bar based on elapsed vs estimated
+    if (estimatedTime && estimatedTime > 0) {
+        const progress = Math.min((elapsed / estimatedTime) * 100, 95);
+        progressBar.style.width = progress + '%';
+    } else {
+        const indeterminateProgress = Math.min(elapsed * 5, 80);
+        progressBar.style.width = indeterminateProgress + '%';
+    }
+}, 100);
+```
+
+**4. Calcolo Tempo Stimato (unified.js righe 366-374)**:
+```javascript
+// Calculate estimated time now that we know page count
+const storedStatsNow = localStorage.getItem('processingStats');
+if (storedStatsNow) {
+    const stats = JSON.parse(storedStatsNow);
+    if (stats.avgTimePerPage > 0) {
+        estimatedTime = (stats.avgTimePerPage * data.page_count) / 1000;
+        timeEstimated.textContent = estimatedTime.toFixed(1);
+    }
+}
+```
+
+**5. Completamento e Nascondimento (unified.js righe 652-665)**:
+```javascript
+finally {
+    // Hide progress indicator and stop timer
+    if (progressTimerInterval) {
+        clearInterval(progressTimerInterval);
+        progressTimerInterval = null;
+    }
+
+    // Set progress bar to 100% and show completion
+    progressBar.style.width = '100%';
+    progressMessage.textContent = '✓ Completato!';
+
+    // Hide progress container after a brief delay
+    setTimeout(() => {
+        progressContainer.style.display = 'none';
+    }, 1500);
+}
+```
+
+### Caratteristiche Design
+- ✅ **Gradiente moderno**: Colori viola/blu con effetto professionale
+- ✅ **Animazioni smooth**: SlideDown, shine effect, pulse
+- ✅ **Glassmorphism**: Backdrop blur per elementi sovrapposti
+- ✅ **Progress bar verde**: Gradiente verde con glow effect
+- ✅ **Responsive**: Badge arrotondati con informazioni chiare
+- ✅ **Timer aggiornato ogni 100ms**: Feedback istantaneo
+- ✅ **Completamento visuale**: Progress al 100% + messaggio di conferma
+
+### Comportamento
+1. **Inizio Upload**: Progress container appare con animazione slideDown
+2. **Durante Elaborazione**:
+   - Timer in tempo reale mostra secondi trascorsi
+   - Tempo stimato mostrato (se disponibile)
+   - Progress bar si riempie progressivamente
+   - Messaggi di stato cambiano ogni 1.5s
+3. **Completamento**:
+   - Progress bar raggiunge 100%
+   - Messaggio "✓ Completato!"
+   - Container scompare dopo 1.5s
+
+### File Modificati
+- `templates/unified.html`: HTML progress indicator e CSS moderno
+- `static/unified.js`: Timer in tempo reale, calcolo tempo stimato, gestione animazioni
+
+### Metriche Performance
+- **Update Timer**: Ogni 100ms per fluidità
+- **Progress Bar**: Transizione smooth 300ms
+- **Animazione Shine**: Loop 2s per effetto moderno
+- **Nascondimento**: Delay 1.5s dopo completamento
+
+
 ## v0.65 (2025-10-31)
 ### Tracking Tempo di Elaborazione e Stima
 Sistema di monitoraggio delle prestazioni che misura il tempo di elaborazione dei PDF e fornisce stime per caricamenti futuri.

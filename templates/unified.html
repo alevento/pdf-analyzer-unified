@@ -472,6 +472,144 @@
             font-weight: bold;
         }
 
+        /* Modern Progress Indicator */
+        .progress-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+            animation: slideDown 0.4s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .progress-label {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .progress-stats {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .time-elapsed {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .time-divider {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 18px;
+        }
+
+        .time-estimated {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .progress-bar-bg {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            height: 12px;
+            overflow: hidden;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #4ade80, #22c55e, #16a34a);
+            height: 100%;
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .progress-shine {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shine 2s infinite;
+        }
+
+        @keyframes shine {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 200%;
+            }
+        }
+
+        .progress-message {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: 500;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
         .loading {
             text-align: center;
             padding: 20px;
@@ -605,6 +743,26 @@
                 <input type="file" id="fileInput" accept=".pdf" />
                 <button id="uploadBtn" class="btn">Carica PDF</button>
                 <span id="status"></span>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-header">
+                    <div class="progress-info">
+                        <span class="progress-label">Elaborazione in corso...</span>
+                        <span class="progress-stats">
+                            <span class="time-elapsed">⏱️ <span id="timeElapsed">0.0</span>s</span>
+                            <span class="time-divider">|</span>
+                            <span class="time-estimated">📊 Stimato: <span id="timeEstimated">--</span>s</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-shine"></div>
+                    </div>
+                </div>
+                <div class="progress-message" id="progressMessage">Preparazione...</div>
             </div>
         </header>
 

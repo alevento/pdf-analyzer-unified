@@ -14,6 +14,8 @@ let currentExtractionMethod = null; // Store extraction method used for auto-ext
 let currentMinConfidence = 60; // Store confidence threshold for OCR extraction
 let uploadStartTime = null; // Track upload processing start time
 let processingStats = null; // Store processing statistics: { avgTimePerPage, totalProcessed }
+let progressTimerInterval = null; // Interval for updating progress timer
+let estimatedTime = null; // Estimated total time based on page count
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -23,6 +25,7 @@ let extractNumbersBtn, extractPdfplumberBtn, extractOcrBtn;
 let zoomControls, legend, numberCount, selectedText;
 let analyzeBtn, visionBtn, askBtn, summarizeBtn, questionInput, opusStatus;
 let pageNavigation, prevPageBtn, nextPageBtn, pageIndicator;
+let progressContainer, progressBar, timeElapsed, timeEstimated, progressMessage;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Get all DOM elements
@@ -84,6 +87,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     prevPageBtn.addEventListener('click', () => navigateToPage(currentPage - 1));
     nextPageBtn.addEventListener('click', () => navigateToPage(currentPage + 1));
+
+    // Progress indicator elements
+    progressContainer = document.getElementById('progressContainer');
+    progressBar = document.getElementById('progressBar');
+    timeElapsed = document.getElementById('timeElapsed');
+    timeEstimated = document.getElementById('timeEstimated');
+    progressMessage = document.getElementById('progressMessage');
 
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -256,12 +266,29 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append('file', file);
 
+    // Calculate estimated time if we have stats
+    const storedStats = localStorage.getItem('processingStats');
+    if (storedStats) {
+        const stats = JSON.parse(storedStats);
+        if (stats.avgTimePerPage > 0) {
+            // We don't know page count yet, but we'll update this after the response
+            estimatedTime = null; // Will be set when we get page_count
+        }
+    }
+
     // Reset cache dimensioni e metodo estrazione per nuovo file
     currentExtractedDimensions = null;
     currentProviderName = null;
     currentExtractionMethod = null;
 
     uploadBtn.disabled = true;
+
+    // Show progress indicator with modern design
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    timeElapsed.textContent = '0.0';
+    timeEstimated.textContent = '--';
+    progressMessage.textContent = 'Preparazione...';
 
     // Crea loader con progressione animata
     const progressMessages = [
@@ -275,11 +302,28 @@ async function uploadFile() {
     // Aggiorna status con animazione
     const updateStatusMessage = () => {
         status.textContent = progressMessages[messageIndex];
+        progressMessage.textContent = progressMessages[messageIndex];
         messageIndex = (messageIndex + 1) % progressMessages.length;
     };
 
     updateStatusMessage();
     const progressInterval = setInterval(updateStatusMessage, 1500);
+
+    // Start real-time timer update
+    progressTimerInterval = setInterval(() => {
+        const elapsed = (performance.now() - uploadStartTime) / 1000;
+        timeElapsed.textContent = elapsed.toFixed(1);
+
+        // Update progress bar based on elapsed vs estimated
+        if (estimatedTime && estimatedTime > 0) {
+            const progress = Math.min((elapsed / estimatedTime) * 100, 95); // Cap at 95% until complete
+            progressBar.style.width = progress + '%';
+        } else {
+            // Indeterminate progress - slow growth
+            const indeterminateProgress = Math.min(elapsed * 5, 80); // Slow progress up to 80%
+            progressBar.style.width = indeterminateProgress + '%';
+        }
+    }, 100);
 
     imageContainer.innerHTML = `
         <div class="loading-container" style="text-align: center; padding: 40px;">
@@ -318,6 +362,16 @@ async function uploadFile() {
             currentPageCount = data.page_count;
             currentPage = 0;
             currentPdfFile = file; // Store uploaded PDF file for unified prompt manager
+
+            // Calculate estimated time now that we know page count
+            const storedStatsNow = localStorage.getItem('processingStats');
+            if (storedStatsNow) {
+                const stats = JSON.parse(storedStatsNow);
+                if (stats.avgTimePerPage > 0) {
+                    estimatedTime = (stats.avgTimePerPage * data.page_count) / 1000; // Convert to seconds
+                    timeEstimated.textContent = estimatedTime.toFixed(1);
+                }
+            }
 
             // Calculate processing time and update statistics
             if (uploadStartTime) {
@@ -595,6 +649,21 @@ async function uploadFile() {
     } catch (error) {
         status.textContent = 'Errore di connessione: ' + error.message;
     } finally {
+        // Hide progress indicator and stop timer
+        if (progressTimerInterval) {
+            clearInterval(progressTimerInterval);
+            progressTimerInterval = null;
+        }
+
+        // Set progress bar to 100% and show completion
+        progressBar.style.width = '100%';
+        progressMessage.textContent = '✓ Completato!';
+
+        // Hide progress container after a brief delay
+        setTimeout(() => {
+            progressContainer.style.display = 'none';
+        }, 1500);
+
         uploadBtn.disabled = false;
     }
 }

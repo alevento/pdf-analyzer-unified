@@ -1,6 +1,72 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.60 (2025-10-31)
+### Bug Fix: Template Generation Error "Min value is 1"
+Risolto errore critico nella generazione di file Excel da template.
+
+### Problema
+Durante la generazione dell'output template, l'applicazione restituiva l'errore:
+```
+Errore: Errore: Min value is 1
+```
+
+### Causa Root
+L'errore si verificava nella funzione `generate_from_template()` quando:
+1. Il template generato dall'AI non conteneva headers validi
+2. L'array `headers` risultava vuoto: `headers = []`
+3. La chiamata a `ws.merge_cells(end_column=len(headers))` riceveva `end_column=0`
+4. La libreria `openpyxl` richiede che `end_column` sia almeno 1
+
+**Codice problematico (unified_app.py righe 2614-2645)**:
+```python
+headers = excel_data.get('headers', [])
+# Nessuna validazione!
+
+# Più avanti nel codice...
+ws.merge_cells(
+    start_row=notes_row + 1,
+    start_column=1,
+    end_row=notes_row + 1,
+    end_column=len(headers)  # ❌ 0 quando headers è vuoto!
+)
+```
+
+### Soluzione
+Implementate due misure di sicurezza:
+
+**1. Validazione Early Return (righe 2618-2619)**:
+```python
+headers = excel_data.get('headers', [])
+
+# Validazione: assicurati che ci siano headers
+if not headers or len(headers) == 0:
+    return jsonify({
+        'error': 'Il template generato non contiene headers validi. Controlla il template e i dati estratti.'
+    }), 400
+```
+
+**2. Safety Check per merge_cells (riga 2645)**:
+```python
+ws.merge_cells(
+    start_row=notes_row + 1,
+    start_column=1,
+    end_row=notes_row + 1,
+    end_column=max(1, len(headers))  # ✅ Minimo 1
+)
+```
+
+### Benefici
+- ✅ **Errore Prevenuto**: Validazione early return blocca l'esecuzione prima di openpyxl
+- ✅ **Messaggio Chiaro**: L'utente riceve un messaggio comprensibile invece di un errore criptico
+- ✅ **Double Safety**: Anche se passa la validazione, max(1, ...) previene valori < 1
+- ✅ **Debug Facilitato**: L'errore indica chiaramente di controllare template e dati estratti
+
+### File Modificati
+- `unified_app.py` (righe 2618-2619, 2645): Validazione headers e safety check
+
+---
+
 ## v0.59 (2025-10-29)
 ### UX Improvements: Riepilogo Dimensioni, Provider Preferito e Progressione
 Migliorata l'esperienza utente con tre nuove funzionalità chiave.

@@ -2613,6 +2613,11 @@ def generate_from_template():
 
         # Write headers
         headers = excel_data.get('headers', [])
+
+        # Validazione: assicurati che ci siano headers
+        if not headers or len(headers) == 0:
+            return jsonify({'error': 'Il template generato non contiene headers validi. Controlla il template e i dati estratti.'}), 400
+
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_idx, value=header)
             cell.fill = header_fill
@@ -2631,12 +2636,13 @@ def generate_from_template():
 
         # Add notes if present
         notes = excel_data.get('notes', '')
-        if notes:
+        if notes and len(headers) > 0:
             notes_row = len(rows) + 3
             ws.cell(row=notes_row, column=1, value='Note:')
             ws.cell(row=notes_row + 1, column=1, value=notes)
+            # Usa max(1, len(headers)) per assicurarti che end_column sia almeno 1
             ws.merge_cells(start_row=notes_row + 1, start_column=1,
-                          end_row=notes_row + 1, end_column=len(headers))
+                          end_row=notes_row + 1, end_column=max(1, len(headers)))
 
         # Save to BytesIO
         output = io.BytesIO()

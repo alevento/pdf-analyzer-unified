@@ -1,6 +1,167 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.62 (2025-10-31)
+### Navigazione Pagine PDF
+Aggiunta possibilità di navigare tra le pagine di un documento PDF multi-pagina direttamente dall'interfaccia principale.
+
+### Problema
+L'applicazione mostrava solo la prima pagina dopo il caricamento di un PDF. Per visualizzare altre pagine, l'utente doveva:
+- Usare i selettori di pagina nei tab di estrazione (Numbers, PDFPlumber, OCR)
+- Eseguire un'estrazione per vedere quella pagina
+- Nessun modo semplice per sfogliare il documento
+
+**Limitazioni precedenti**:
+- ❌ Impossibile visualizzare rapidamente tutte le pagine
+- ❌ Necessario eseguire estrazioni per cambiare pagina
+- ❌ UX poco intuitiva per PDF multi-pagina
+
+### Soluzione
+Implementati controlli di navigazione dedicati visibili nell'interfaccia principale.
+
+**1. Controlli UI (unified.html righe 718-723)**:
+```html
+<!-- Page Navigation Controls -->
+<div class="page-navigation" id="pageNavigation" style="display: none;">
+    <button class="zoom-btn" id="prevPage" title="Pagina precedente">◄</button>
+    <span class="page-indicator" id="pageIndicator">1 / 1</span>
+    <button class="zoom-btn" id="nextPage" title="Pagina successiva">►</button>
+</div>
+```
+
+**2. Funzione di Navigazione (unified.js righe 625-664)**:
+```javascript
+async function navigateToPage(newPage) {
+    // Validate page number
+    if (newPage < 0 || newPage >= currentPageCount) return;
+
+    // Show loading indicator
+    const img = document.getElementById('mainImage');
+    if (img) img.style.opacity = '0.5';
+
+    try {
+        // Fetch the new page image from backend
+        const response = await fetch(`/get_page/${newPage}`);
+        const data = await response.json();
+
+        if (data.success && data.page_image) {
+            currentPage = newPage;
+            displayImage(data.page_image);
+
+            // Sync page selectors in extraction tabs
+            [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
+                if (select) select.value = newPage + 1;
+            });
+        }
+    } catch (error) {
+        console.error('Error navigating to page:', error);
+    }
+}
+```
+
+**3. Aggiornamento Indicatore Pagina (unified.js righe 615-623)**:
+```javascript
+function updatePageIndicator() {
+    if (pageIndicator && currentPageCount > 0) {
+        pageIndicator.textContent = `${currentPage + 1} / ${currentPageCount}`;
+
+        // Disable/enable buttons based on current page
+        prevPageBtn.disabled = (currentPage === 0);
+        nextPageBtn.disabled = (currentPage === currentPageCount - 1);
+    }
+}
+```
+
+**4. Supporto Tastiera (unified.js righe 106-125)**:
+```javascript
+// Keyboard navigation for pages (Arrow Left/Right)
+document.addEventListener('keydown', function(e) {
+    if (currentPageCount <= 1) return;
+
+    // Ignore if user is typing in an input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentPage > 0) navigateToPage(currentPage - 1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentPage < currentPageCount - 1) navigateToPage(currentPage + 1);
+    }
+});
+```
+
+**5. Visualizzazione Automatica (unified.js righe 606-610)**:
+```javascript
+// Show page navigation if multi-page PDF
+if (currentPageCount > 1) {
+    pageNavigation.style.display = 'block';
+    updatePageIndicator();
+}
+```
+
+### Funzionalità
+- 🔄 **Pulsanti Navigazione**: Frecce ◄ e ► per pagina precedente/successiva
+- 📊 **Indicatore Pagina**: Mostra "X / Y" (pagina corrente / totale pagine)
+- ⌨️ **Scorciatoie Tastiera**: Freccia Sinistra (←) e Destra (→) per navigare
+- 🔒 **Pulsanti Intelligenti**: Disabilitati automaticamente a inizio/fine documento
+- ⚡ **Loading Feedback**: Effetto fade durante il caricamento della nuova pagina
+- 🔄 **Sincronizzazione**: Aggiorna automaticamente i selettori nei tab di estrazione
+- 👁️ **Visibilità Condizionale**: Controlli mostrati solo per PDF multi-pagina
+
+### Endpoint Backend Utilizzato
+Utilizza l'endpoint esistente `/get_page/<page_num>` (unified_app.py righe 1743-1755):
+```python
+@app.route('/get_page/<int:page_num>')
+def get_page(page_num):
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'No PDF loaded'}), 400
+
+    processor = PDFProcessor(filepath)
+    page_image = processor.get_page_image(page_num=page_num)
+
+    return jsonify({
+        'success': True,
+        'page_image': page_image
+    })
+```
+
+### UX Workflow
+
+**Prima (v0.61)**:
+```
+1. Carica PDF multi-pagina
+2. Vede solo pagina 1
+3. Per vedere pagina 2: vai al tab Numbers → seleziona pagina 2 → clicca "Estrai"
+4. Ripeti per ogni pagina
+```
+
+**Dopo (v0.62)**:
+```
+1. Carica PDF multi-pagina
+2. Vede pagina 1 con controlli ◄ [1/5] ►
+3. Clicca ► o premi freccia destra → passa a pagina 2
+4. Clicca ◄ o premi freccia sinistra → torna a pagina 1
+5. Navigazione istantanea tra tutte le pagine
+```
+
+### Benefici
+- ✅ **Navigazione Intuitiva**: Sfoglia il PDF come un lettore standard
+- ✅ **Velocità**: Cambio pagina istantaneo senza estrazioni
+- ✅ **Accessibilità**: Supporto tastiera per navigazione rapida
+- ✅ **Feedback Visivo**: Indicatore pagina sempre visibile
+- ✅ **Integrazione**: Sincronizzato con selettori di estrazione
+- ✅ **Ergonomia**: Pulsanti disabilitati prevengono errori
+
+### File Modificati
+- `templates/unified.html` (righe 718-723): Page navigation controls UI
+- `static/unified.js` (righe 21, 75-82, 106-125, 606-664): Navigation logic and keyboard support
+- `VERSION.txt`: Updated to 0.62
+- `CHANGELOG.md`: Documented page navigation feature
+
+---
+
 ## v0.61 (2025-10-31)
 ### Ottimizzazione: Riutilizzo Dimensioni Estratte per Template
 Implementato sistema di cache per riutilizzare le dimensioni già estratte durante il workflow automatico quando si genera il template Excel, eliminando chiamate API duplicate.

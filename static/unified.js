@@ -18,6 +18,7 @@ let confidenceThreshold, rotationSelect, psmSelect;
 let extractNumbersBtn, extractPdfplumberBtn, extractOcrBtn;
 let zoomControls, legend, numberCount, selectedText;
 let analyzeBtn, visionBtn, askBtn, summarizeBtn, questionInput, opusStatus;
+let pageNavigation, prevPageBtn, nextPageBtn, pageIndicator;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Get all DOM elements
@@ -71,6 +72,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('zoomOut').addEventListener('click', () => zoomImage(-25));
     document.getElementById('zoomReset').addEventListener('click', () => setZoom(100));
 
+    // Page navigation controls
+    pageNavigation = document.getElementById('pageNavigation');
+    prevPageBtn = document.getElementById('prevPage');
+    nextPageBtn = document.getElementById('nextPage');
+    pageIndicator = document.getElementById('pageIndicator');
+
+    prevPageBtn.addEventListener('click', () => navigateToPage(currentPage - 1));
+    nextPageBtn.addEventListener('click', () => navigateToPage(currentPage + 1));
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -92,6 +102,27 @@ document.addEventListener('DOMContentLoaded', function() {
             executeUnifiedPrompt();
         });
     }
+
+    // Keyboard navigation for pages (Arrow Left/Right)
+    document.addEventListener('keydown', function(e) {
+        // Only navigate if a PDF is loaded and multi-page
+        if (currentPageCount <= 1) return;
+
+        // Ignore if user is typing in an input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (currentPage > 0) {
+                navigateToPage(currentPage - 1);
+            }
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (currentPage < currentPageCount - 1) {
+                navigateToPage(currentPage + 1);
+            }
+        }
+    });
 });
 
 function handleFileSelect() {
@@ -592,7 +623,65 @@ function displayImage(imageBase64) {
     img.addEventListener('click', handleImageClick);
     imageContainer.appendChild(img);
     zoomControls.style.display = 'flex';
+
+    // Show page navigation if multi-page PDF
+    if (currentPageCount > 1) {
+        pageNavigation.style.display = 'block';
+        updatePageIndicator();
+    }
+
     applyZoom();
+}
+
+function updatePageIndicator() {
+    if (pageIndicator && currentPageCount > 0) {
+        pageIndicator.textContent = `${currentPage + 1} / ${currentPageCount}`;
+
+        // Disable/enable buttons based on current page
+        prevPageBtn.disabled = (currentPage === 0);
+        nextPageBtn.disabled = (currentPage === currentPageCount - 1);
+    }
+}
+
+async function navigateToPage(newPage) {
+    // Validate page number
+    if (newPage < 0 || newPage >= currentPageCount) {
+        return;
+    }
+
+    // Show loading indicator
+    const img = document.getElementById('mainImage');
+    if (img) {
+        img.style.opacity = '0.5';
+    }
+
+    try {
+        // Fetch the new page image
+        const response = await fetch(`/get_page/${newPage}`);
+        const data = await response.json();
+
+        if (data.success && data.page_image) {
+            currentPage = newPage;
+            displayImage(data.page_image);
+
+            // Update page selectors in extraction tabs
+            [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
+                if (select) {
+                    select.value = newPage + 1;
+                }
+            });
+        } else {
+            console.error('Failed to load page:', data.error);
+            if (img) {
+                img.style.opacity = '1';
+            }
+        }
+    } catch (error) {
+        console.error('Error navigating to page:', error);
+        if (img) {
+            img.style.opacity = '1';
+        }
+    }
 }
 
 function handleImageClick(event) {

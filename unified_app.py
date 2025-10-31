@@ -2448,6 +2448,15 @@ def generate_excel_from_template_with_opus(template_text, extracted_data):
     if not current_provider and not DEMO_MODE:
         return {'error': 'Nessun provider AI configurato'}
 
+    # Debug: Log input data
+    print(f"\n[DEBUG] Template generation started")
+    print(f"  Template length: {len(template_text)} chars")
+    print(f"  Extracted data keys: {extracted_data.keys()}")
+    print(f"  OCR numbers count: {len(extracted_data.get('ocr_numbers', []))}")
+    print(f"  PDFPlumber text length: {len(extracted_data.get('pdfplumber_text', ''))}")
+    print(f"  Has AI analysis: {bool(extracted_data.get('ai_analysis'))}")
+    print(f"  Has dimensions: {bool(extracted_data.get('dimensions'))}")
+
     # Prepare data summary
     data_summary = {
         'ocr_numbers': extracted_data.get('ocr_numbers', []),
@@ -2567,13 +2576,25 @@ REGOLE IMPORTANTI:
                 response_text = response_text.split('```')[1].split('```')[0]
 
             excel_data = json.loads(response_text.strip())
+
+            # Log parsed data for debugging
+            print(f"[DEBUG] Template generation - Parsed excel_data:")
+            print(f"  Headers: {excel_data.get('headers', [])}")
+            print(f"  Rows count: {len(excel_data.get('rows', []))}")
+            print(f"  Sheet name: {excel_data.get('sheet_name', 'N/A')}")
+
             return {'success': True, 'excel_data': excel_data, 'provider': provider_name}
 
         except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse JSON from AI response:")
+            print(f"  Raw response (first 500 chars): {response_text[:500]}")
             return {'error': f'Invalid JSON response from {provider_name}: {str(e)}'}
 
     except Exception as e:
         provider_name = ai_manager.get_current_provider_name()
+        print(f"[ERROR] Exception in template generation: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return {'error': f'Error calling {provider_name}: {str(e)}'}
 
 
@@ -2616,7 +2637,22 @@ def generate_from_template():
 
         # Validazione: assicurati che ci siano headers
         if not headers or len(headers) == 0:
-            return jsonify({'error': 'Il template generato non contiene headers validi. Controlla il template e i dati estratti.'}), 400
+            print(f"[ERROR] Template validation failed - No valid headers")
+            print(f"  Excel data structure: {excel_data.keys()}")
+            print(f"  Full excel_data: {json.dumps(excel_data, indent=2, ensure_ascii=False)[:1000]}")
+
+            error_details = {
+                'error': 'Il template generato non contiene headers validi.',
+                'details': 'L\'AI non è riuscita a generare un template con colonne valide.',
+                'suggestions': [
+                    'Verifica che il template contenga una struttura chiara con campi/colonne definiti',
+                    'Assicurati che ci siano dati estratti disponibili (numeri OCR, testo, o analisi AI)',
+                    'Controlla che il provider AI sia configurato correttamente'
+                ],
+                'excel_data_keys': list(excel_data.keys()),
+                'provider': result.get('provider', 'unknown')
+            }
+            return jsonify(error_details), 400
 
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_idx, value=header)

@@ -1,6 +1,110 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.65 (2025-10-31)
+### Tracking Tempo di Elaborazione e Stima
+Sistema di monitoraggio delle prestazioni che misura il tempo di elaborazione dei PDF e fornisce stime per caricamenti futuri.
+
+### Problema
+L'utente non aveva visibilità sul tempo di elaborazione e non poteva stimare quanto tempo richiedesse l'analisi di nuovi documenti.
+
+**Limitazioni**:
+- ❌ Nessuna informazione sul tempo di elaborazione
+- ❌ Impossibile stimare tempi per documenti futuri
+- ❌ Nessun feedback sulle performance del sistema
+
+### Soluzione
+Implementato sistema di tracking delle performance che:
+1. Misura il tempo di elaborazione per ogni upload
+2. Calcola il tempo medio per pagina
+3. Mantiene una media progressiva basata su tutti i documenti processati
+4. Mostra la stima prima del caricamento
+
+**1. Variabili Globali per Tracking (unified.js righe 15-16)**:
+```javascript
+let uploadStartTime = null; // Track upload processing start time
+let processingStats = null; // Store processing statistics: { avgTimePerPage, totalProcessed }
+```
+
+**2. Inizio Misurazione Tempo (unified.js riga 241)**:
+```javascript
+async function uploadFile() {
+    // ... validazione file ...
+
+    // Start timing upload processing
+    uploadStartTime = performance.now();
+
+    const formData = new FormData();
+    // ...
+}
+```
+
+**3. Calcolo Statistiche e Media Progressiva (unified.js righe 309-330)**:
+```javascript
+// Calculate processing time and update statistics
+if (uploadStartTime) {
+    const elapsedTime = performance.now() - uploadStartTime;
+    const timePerPage = elapsedTime / data.page_count;
+
+    // Load previous stats from localStorage
+    const storedStats = localStorage.getItem('processingStats');
+    let stats = storedStats ? JSON.parse(storedStats) : { avgTimePerPage: 0, totalProcessed: 0 };
+
+    // Update rolling average: newAvg = (oldAvg * count + newTime) / (count + 1)
+    const newAvg = (stats.avgTimePerPage * stats.totalProcessed + timePerPage) / (stats.totalProcessed + 1);
+    stats.avgTimePerPage = newAvg;
+    stats.totalProcessed += 1;
+
+    // Save updated stats
+    localStorage.setItem('processingStats', JSON.stringify(stats));
+    processingStats = stats;
+
+    console.log(`[Performance] Processing time: ${(elapsedTime / 1000).toFixed(2)}s for ${data.page_count} pages`);
+    console.log(`[Performance] Time per page: ${(timePerPage / 1000).toFixed(2)}s`);
+    console.log(`[Performance] Average time per page: ${(stats.avgTimePerPage / 1000).toFixed(2)}s (based on ${stats.totalProcessed} documents)`);
+}
+```
+
+**4. Visualizzazione Stima Tempo (unified.js righe 205-215)**:
+```javascript
+function handleFileSelect() {
+    if (fileInput.files.length > 0) {
+        uploadBtn.disabled = false;
+
+        // Load processing stats to show estimated time
+        const storedStats = localStorage.getItem('processingStats');
+        let statusMsg = 'File selezionato: ' + fileInput.files[0].name;
+
+        if (storedStats) {
+            const stats = JSON.parse(storedStats);
+            if (stats.avgTimePerPage > 0 && stats.totalProcessed > 0) {
+                const avgSeconds = (stats.avgTimePerPage / 1000).toFixed(1);
+                statusMsg += ` - ⏱️ Tempo medio: ${avgSeconds}s per pagina (${stats.totalProcessed} documenti)`;
+            }
+        }
+
+        status.textContent = statusMsg;
+    }
+}
+```
+
+### Benefici
+- ✅ **Trasparenza**: L'utente vede il tempo di elaborazione effettivo
+- ✅ **Prevedibilità**: Stima del tempo basata su performance reali
+- ✅ **Media Progressiva**: Le stime migliorano con ogni documento processato
+- ✅ **Persistenza**: Le statistiche sono salvate in localStorage
+- ✅ **Feedback Console**: Log dettagliati per debugging e monitoraggio
+
+### Comportamento
+1. **Prima Upload**: Nessuna stima disponibile
+2. **Dopo Upload**: Sistema misura tempo e aggiorna la media
+3. **Upload Successivi**: Mostra "⏱️ Tempo medio: Xs per pagina (N documenti)"
+4. **Media Progressiva**: `newAvg = (oldAvg × count + newTime) / (count + 1)`
+
+### File Modificati
+- `static/unified.js`: Tracking performance e visualizzazione stime
+
+
 ## v0.64 (2025-10-31)
 ### Caricamento PDF con Drag and Drop
 Aggiunta possibilità di caricare file PDF trascinandoli direttamente nella zona di visualizzazione.

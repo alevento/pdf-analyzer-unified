@@ -12,6 +12,8 @@ let currentExtractedDimensions = null; // Store dimensions from auto-extraction 
 let currentProviderName = null; // Store provider name used for dimensions extraction
 let currentExtractionMethod = null; // Store extraction method used for auto-extraction ('pdfplumber', 'ocr', or 'none')
 let currentMinConfidence = 60; // Store confidence threshold for OCR extraction
+let uploadStartTime = null; // Track upload processing start time
+let processingStats = null; // Store processing statistics: { avgTimePerPage, totalProcessed }
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -199,7 +201,20 @@ function setupDragAndDrop() {
 function handleFileSelect() {
     if (fileInput.files.length > 0) {
         uploadBtn.disabled = false;
-        status.textContent = 'File selezionato: ' + fileInput.files[0].name;
+
+        // Load processing stats to show estimated time
+        const storedStats = localStorage.getItem('processingStats');
+        let statusMsg = 'File selezionato: ' + fileInput.files[0].name;
+
+        if (storedStats) {
+            const stats = JSON.parse(storedStats);
+            if (stats.avgTimePerPage > 0 && stats.totalProcessed > 0) {
+                const avgSeconds = (stats.avgTimePerPage / 1000).toFixed(1);
+                statusMsg += ` - ⏱️ Tempo medio: ${avgSeconds}s per pagina (${stats.totalProcessed} documenti)`;
+            }
+        }
+
+        status.textContent = statusMsg;
     } else {
         status.textContent = '';
     }
@@ -234,6 +249,9 @@ async function uploadFile() {
         status.textContent = 'Errore: Il file deve essere un PDF';
         return;
     }
+
+    // Start timing upload processing
+    uploadStartTime = performance.now();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -300,6 +318,29 @@ async function uploadFile() {
             currentPageCount = data.page_count;
             currentPage = 0;
             currentPdfFile = file; // Store uploaded PDF file for unified prompt manager
+
+            // Calculate processing time and update statistics
+            if (uploadStartTime) {
+                const elapsedTime = performance.now() - uploadStartTime;
+                const timePerPage = elapsedTime / data.page_count;
+
+                // Load previous stats from localStorage
+                const storedStats = localStorage.getItem('processingStats');
+                let stats = storedStats ? JSON.parse(storedStats) : { avgTimePerPage: 0, totalProcessed: 0 };
+
+                // Update rolling average: newAvg = (oldAvg * count + newTime) / (count + 1)
+                const newAvg = (stats.avgTimePerPage * stats.totalProcessed + timePerPage) / (stats.totalProcessed + 1);
+                stats.avgTimePerPage = newAvg;
+                stats.totalProcessed += 1;
+
+                // Save updated stats
+                localStorage.setItem('processingStats', JSON.stringify(stats));
+                processingStats = stats;
+
+                console.log(`[Performance] Processing time: ${(elapsedTime / 1000).toFixed(2)}s for ${data.page_count} pages`);
+                console.log(`[Performance] Time per page: ${(timePerPage / 1000).toFixed(2)}s`);
+                console.log(`[Performance] Average time per page: ${(stats.avgTimePerPage / 1000).toFixed(2)}s (based on ${stats.totalProcessed} documents)`);
+            }
 
             // Update PDF type badge
             const pdfTypeBadge = document.getElementById('pdfTypeBadge');

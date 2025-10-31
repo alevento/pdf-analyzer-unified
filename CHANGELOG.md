@@ -1,6 +1,112 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.61 (2025-10-31)
+### Ottimizzazione: Riutilizzo Dimensioni Estratte per Template
+Implementato sistema di cache per riutilizzare le dimensioni già estratte durante il workflow automatico quando si genera il template Excel, eliminando chiamate API duplicate.
+
+### Problema
+Quando l'utente caricava un PDF multi-pagina:
+1. ✅ Auto-extraction eseguiva l'estrazione dimensioni (consumando token AI)
+2. ✅ Risultati mostrati nell'UI
+3. ❌ Durante la generazione del template, le dimensioni venivano **rianalizzate da zero** (consumando altri token)
+
+**Conseguenze**:
+- Token AI sprecati (doppia analisi dello stesso contenuto)
+- Tempo di elaborazione maggiore
+- Costi API inutili
+
+### Soluzione
+Implementato sistema di cache per salvare e riutilizzare le dimensioni già estratte.
+
+**1. Variabili Globali di Cache (unified.js righe 11-12)**:
+```javascript
+let currentExtractedDimensions = null; // Store dimensions from auto-extraction for reuse
+let currentProviderName = null; // Store provider name used for dimensions extraction
+```
+
+**2. Salvataggio Risultati Auto-Extraction (unified.js righe 324-338)**:
+```javascript
+// Salva i risultati nella cache globale per riutilizzo nel template
+const dimensionsText = data.dimensions_extraction.results
+    .map(result => {
+        if (result.error) {
+            return `Pagina ${result.page}: [Errore: ${result.error}]`;
+        } else {
+            return `Pagina ${result.page}:\n${result.dimensions}`;
+        }
+    })
+    .join('\n\n');
+
+currentExtractedDimensions = dimensionsText;
+currentProviderName = data.dimensions_extraction.provider;
+console.log('Dimensioni salvate in cache per riutilizzo (nessun token aggiuntivo necessario per il template)');
+```
+
+**3. Reset Cache per Nuovo File (unified.js righe 139-141)**:
+```javascript
+// Reset cache dimensioni per nuovo file
+currentExtractedDimensions = null;
+currentProviderName = null;
+```
+
+**4. Riutilizzo in Template Generation (unified.js righe 1603-1611)** [Già presente]:
+```javascript
+// Check if dimensions are already cached (from previous extraction)
+if (typeof currentExtractedDimensions !== 'undefined' && currentExtractedDimensions) {
+    updateProgress(75, 'Riutilizzo dimensioni', 'Uso dimensioni già estratte (nessun token consumato)...');
+    console.log('Using cached dimensions, no API call needed');
+
+    dimensionsData = {
+        text: currentExtractedDimensions,
+        provider: currentProviderName
+    };
+}
+```
+
+### Flusso di Lavoro Ottimizzato
+
+**Prima (v0.60 e precedenti)**:
+```
+1. Upload PDF → Auto-extraction dimensioni (usa token AI) ✅
+2. Mostra risultati nell'UI ✅
+3. Genera template → Rianalizza dimensioni (usa altri token AI) ❌
+```
+
+**Dopo (v0.61)**:
+```
+1. Upload PDF → Auto-extraction dimensioni (usa token AI) ✅
+2. Salva risultati in cache ✅
+3. Mostra risultati nell'UI ✅
+4. Genera template → Riutilizza cache (0 token aggiuntivi) ✅
+```
+
+### Benefici
+- ✅ **Zero Token Sprecati**: Le dimensioni vengono estratte una sola volta
+- ✅ **Generazione Template Più Veloce**: Nessuna chiamata API aggiuntiva
+- ✅ **Costi Ridotti**: Eliminata l'analisi duplicata
+- ✅ **UX Migliorata**: Messaggio "Riutilizzo dimensioni già estratte (nessun token consumato)" mostra all'utente l'ottimizzazione
+- ✅ **Fallback Intelligente**: Se la cache non è disponibile, esegue l'estrazione normalmente
+
+### Formato Dati Salvati
+Le dimensioni vengono salvate come testo formattato multi-pagina:
+```
+Pagina 1:
+Dimensioni rilevate: 1540x1270x835 mm
+Altezza: 432 mm
+
+Pagina 2:
+Larghezza: 765 mm
+Profondità: 26 mm
+```
+
+### File Modificati
+- `unified.js` (righe 11-12, 139-141, 324-338): Cache system implementation
+- `VERSION.txt`: Updated to 0.61
+- `CHANGELOG.md`: Documented optimization
+
+---
+
 ## v0.60 (2025-10-31)
 ### Bug Fix: Template Generation Error "Min value is 1"
 Risolto errore critico nella generazione di file Excel da template.

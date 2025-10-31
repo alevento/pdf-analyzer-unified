@@ -8,6 +8,8 @@ let currentMode = 'numbers'; // 'numbers', 'pdfplumber', 'ocr', 'ai'
 let currentPageImage = null; // Store current page image for AI vision
 let currentDisplayData = null; // Store currently displayed data for download
 let currentPdfFile = null; // Store current uploaded PDF file
+let currentExtractedDimensions = null; // Store dimensions from auto-extraction for reuse
+let currentProviderName = null; // Store provider name used for dimensions extraction
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -133,6 +135,10 @@ async function uploadFile() {
 
     const formData = new FormData();
     formData.append('file', file);
+
+    // Reset cache dimensioni per nuovo file
+    currentExtractedDimensions = null;
+    currentProviderName = null;
 
     uploadBtn.disabled = true;
 
@@ -318,6 +324,22 @@ async function uploadFile() {
             // Mostra risultati estrazione dimensioni automatica se eseguita
             if (data.auto_dimensions_executed && data.dimensions_extraction) {
                 console.log('Auto-estrazione dimensioni eseguita:', data.dimensions_extraction);
+
+                // Salva i risultati nella cache globale per riutilizzo nel template
+                // Combina tutti i risultati delle pagine in un unico testo
+                const dimensionsText = data.dimensions_extraction.results
+                    .map(result => {
+                        if (result.error) {
+                            return `Pagina ${result.page}: [Errore: ${result.error}]`;
+                        } else {
+                            return `Pagina ${result.page}:\n${result.dimensions}`;
+                        }
+                    })
+                    .join('\n\n');
+
+                currentExtractedDimensions = dimensionsText;
+                currentProviderName = data.dimensions_extraction.provider;
+                console.log('Dimensioni salvate in cache per riutilizzo (nessun token aggiuntivo necessario per il template)');
 
                 // Crea riepilogo dimensioni trovate
                 const allDimensions = [];

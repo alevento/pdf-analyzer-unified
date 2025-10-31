@@ -1,6 +1,242 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.58 (2025-10-29)
+### Auto-Estrazione Dimensioni al Caricamento
+Aggiunta estrazione automatica delle dimensioni durante il caricamento di PDF multi-pagina quando esiste un prompt dimensioni predefinito.
+
+### Funzionalità
+Dopo l'analisi layout automatica (v0.56-v0.57), il sistema ora esegue anche l'estrazione delle dimensioni se esiste un prompt dimensioni contrassegnato come predefinito (⭐):
+
+**Workflow completo al caricamento:**
+1. ✅ Upload PDF multi-pagina
+2. ✅ Auto-analisi layout (tutte le pagine insieme) - se prompt layout predefinito
+3. ✅ Auto-estrazione dimensioni (pagina per pagina) - se prompt dimensioni predefinito
+4. ✅ Risultati mostrati immediatamente
+
+### Differenza con Analisi Layout
+- **Layout**: Analisi dell'intero documento in una sola chiamata AI (contesto globale)
+- **Dimensioni**: Estrazione per ogni pagina separatamente (dettagli specifici per pagina)
+
+Questa differenza è intenzionale perché:
+- Il layout è coerente attraverso tutto il documento
+- Le dimensioni sono specifiche per ogni pagina e vanno estratte singolarmente
+
+### Dettagli Tecnici
+
+**unified_app.py (righe 1658-1720):**
+```python
+# Auto-estrazione dimensioni per PDF multi-pagina se esiste prompt predefinito
+dimensions_extraction = None
+auto_dimensions_executed = False
+
+if page_count > 1:
+    # Cerca prompt dimensioni predefinito
+    dimension_prompts_file = os.path.join(
+        app.config['DIMENSION_PROMPTS_FOLDER'],
+        'dimension_prompts.json'
+    )
+
+    # Trova prompt con is_default: True
+    default_dim_prompt = ...
+
+    if default_dim_prompt:
+        # Estrai dimensioni pagina per pagina
+        results = []
+        for page_num in range(page_count):
+            page_image_b64 = processor.get_page_image(page_num=page_num)
+
+            try:
+                dimensions_text = current_provider.analyze_vision(
+                    default_dim_prompt['content'],
+                    page_image_b64
+                )
+                results.append({
+                    'page': page_num + 1,
+                    'dimensions': dimensions_text
+                })
+            except Exception as e:
+                results.append({
+                    'page': page_num + 1,
+                    'error': str(e)
+                })
+```
+
+**Struttura JSON Risposta:**
+```json
+{
+  "success": true,
+  "auto_layout_executed": true,
+  "layout_analysis": { ... },
+  "auto_dimensions_executed": true,
+  "dimensions_extraction": {
+    "prompt_name": "Estrazione Quote",
+    "prompt_id": "uuid",
+    "provider": "Gemini 2.5 Pro",
+    "results": [
+      {
+        "page": 1,
+        "dimensions": "Quote trovate: 432mm, 765mm, ..."
+      },
+      {
+        "page": 2,
+        "dimensions": "Quote trovate: 26mm, 63mm, ..."
+      },
+      {
+        "page": 3,
+        "error": "Timeout durante l'analisi"
+      }
+    ]
+  }
+}
+```
+
+**unified.js (righe 278-329):**
+- Box verde distintivo con icona 📐
+- Mostra prompt utilizzato e provider
+- Lista risultati per pagina con gestione errori
+- Status aggregato (X/Y pagine completate)
+
+### UI Miglioramenti
+- **Box Verde**: Colore #4caf50 per distinguere dall'analisi layout (blu)
+- **Icona 📐**: Icona specifica per estrazione dimensioni
+- **Per-Page Results**: Ogni pagina ha il suo risultato separato
+- **Error Handling**: Errori su singole pagine mostrati in rosso, non bloccano le altre
+- **Status Aggregato**: Mostra X/Y pagine completate con successo
+
+### Esperienza Utente
+
+**Prima (v0.57):**
+```
+1. Carica PDF multi-pagina
+2. Analisi layout automatica ✅
+3. Vai nella sezione Dimensioni
+4. Seleziona prompt
+5. Clicca "Estrai Dimensioni"
+6. Attendi risultati
+```
+
+**Dopo (v0.58):**
+```
+1. Carica PDF multi-pagina
+2. Analisi layout automatica ✅
+3. Estrazione dimensioni automatica ✅
+```
+
+### File Modificati
+- `unified_app.py`: Logica auto-estrazione dimensioni (righe 1658-1720)
+- `static/unified.js`: Visualizzazione risultati dimensioni (righe 278-329)
+
+### Vantaggi
+- ⚡ **Zero Click**: Dimensioni estratte automaticamente senza azioni manuali
+- 🎯 **Risultati Immediati**: Vedi dimensioni appena caricato il PDF
+- 📄 **Per-Page Details**: Ogni pagina ha le sue dimensioni specifiche
+- 🛡️ **Resiliente**: Errori su singole pagine non bloccano l'intero processo
+- 🔄 **Workflow Completo**: Layout + Dimensioni in un solo caricamento
+
+### Note
+- Funziona solo con PDF multi-pagina (>1 pagina)
+- Richiede prompt dimensioni contrassegnato come predefinito (⭐)
+- Esegue estrazione pagina per pagina (a differenza del layout)
+- Tempo di caricamento proporzionale al numero di pagine
+
+
+## v0.57 (2025-10-29)
+### Analisi Layout su Documento Completo (Multi-Image Vision)
+Migliorata l'auto-analisi layout per analizzare l'intero documento multi-pagina in un'unica chiamata AI invece di pagina per pagina.
+
+### Problema
+Nella v0.56, l'analisi layout analizzava ogni pagina singolarmente con chiamate separate all'AI:
+- ❌ Meno efficiente (N chiamate invece di 1)
+- ❌ Nessun contesto tra le pagine
+- ❌ Impossibile capire la struttura globale del documento
+- ❌ Più costoso in termini di token e tempo
+
+### Soluzione
+Raccolta di tutte le immagini delle pagine e invio in una singola chiamata API:
+- ✅ Una sola chiamata AI per documento
+- ✅ Analisi contestuale dell'intero documento
+- ✅ L'AI può vedere il layout coerente attraverso tutte le pagine
+- ✅ Più veloce ed efficiente
+
+### Comportamento
+**v0.56 (Prima):**
+```
+Pagina 1 → Analisi AI → Risultato 1
+Pagina 2 → Analisi AI → Risultato 2
+Pagina 3 → Analisi AI → Risultato 3
+```
+
+**v0.57 (Dopo):**
+```
+[Pagina 1, Pagina 2, Pagina 3] → Analisi AI → Risultato Unico
+```
+
+### Modifiche Tecniche
+
+**ai_providers.py:**
+- Aggiunta importazione `Union, List` per type hints
+- Metodo `analyze_vision()` ora accetta `Union[str, List[str]]` per supportare singole immagini o array
+- Implementato per tutti i provider:
+  - **ClaudeProvider**: Content array con multipli oggetti image
+  - **ClaudeSonnetProvider**: Content array con multipli oggetti image
+  - **OpenAIProvider**: Content array con multipli image_url
+  - **GeminiProvider**: Content list con multipli PIL Image objects
+  - **NovitaAIProvider**: Content array con multipli image_url
+- Retrocompatibilità garantita: singole immagini funzionano come prima
+
+**unified_app.py (righe 1619-1651):**
+```python
+# Prima (v0.56):
+for page_num in range(page_count):
+    page_image = processor.get_page_image(page_num)
+    analysis = provider.analyze_vision(prompt, page_image)
+    results.append({'page': page_num, 'analysis': analysis})
+
+# Dopo (v0.57):
+all_page_images = []
+for page_num in range(page_count):
+    page_image = processor.get_page_image(page_num)
+    all_page_images.append(page_image)
+
+analysis = provider.analyze_vision(prompt, all_page_images)
+```
+
+**Struttura JSON Aggiornata:**
+```json
+{
+  "auto_layout_executed": true,
+  "layout_analysis": {
+    "prompt_name": "Layout Disegni Tecnici",
+    "prompt_id": "uuid",
+    "provider": "Gemini 2.5 Pro",
+    "page_count": 3,
+    "analysis": "Analisi completa dell'intero documento...",
+    // oppure
+    "error": "Messaggio di errore se analisi fallisce"
+  }
+}
+```
+
+**unified.js (righe 235-276):**
+- Modificata visualizzazione per mostrare singolo risultato invece di array
+- Box colorato dinamicamente: blu per successo, rosso per errore
+- Mostra conteggio pagine analizzate
+- Display unico e pulito dell'analisi completa
+
+### File Modificati
+- `ai_providers.py`: Tutti i provider aggiornati per supportare array di immagini
+- `unified_app.py`: Logica auto-analisi modificata per raccogliere tutte le pagine (righe 1619-1651)
+- `static/unified.js`: Visualizzazione aggiornata per risultato unico (righe 235-276)
+
+### Vantaggi
+- ⚡ **Performance**: Una chiamata invece di N chiamate
+- 🧠 **Contesto Migliore**: L'AI vede l'intero documento
+- 💰 **Più Efficiente**: Minori costi API
+- 🎯 **Analisi Migliore**: Layout coerente rilevato globalmente
+- 🔄 **Retrocompatibile**: Funziona ancora con singole immagini
+
+
 ## v0.56 (2025-10-29)
 ### Auto-Analisi Layout per PDF Multi-Pagina
 Implementata analisi layout automatica al caricamento di PDF con più pagine quando esiste un prompt layout predefinito.

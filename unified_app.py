@@ -1616,40 +1616,108 @@ def upload_file():
                         if current_provider:
                             provider_name = ai_manager.get_current_provider_name()
 
-                            # Analizza tutte le pagine
-                            results = []
+                            # Raccogli tutte le immagini delle pagine
+                            all_page_images = []
                             for page_num in range(page_count):
                                 page_image_b64 = processor.get_page_image(page_num=page_num)
+                                all_page_images.append(page_image_b64)
 
-                                try:
-                                    analysis = current_provider.analyze_vision(
-                                        default_prompt['content'],
-                                        page_image_b64
-                                    )
-                                    results.append({
-                                        'page': page_num + 1,
-                                        'analysis': analysis
-                                    })
-                                except Exception as e:
-                                    print(f"Errore analisi pagina {page_num + 1}: {str(e)}")
-                                    results.append({
-                                        'page': page_num + 1,
-                                        'error': str(e)
-                                    })
+                            # Analizza l'intero documento con tutte le pagine
+                            try:
+                                analysis = current_provider.analyze_vision(
+                                    default_prompt['content'],
+                                    all_page_images
+                                )
 
-                            layout_analysis = {
-                                'prompt_name': default_prompt['name'],
-                                'prompt_id': default_prompt['id'],
-                                'provider': provider_name,
-                                'results': results
-                            }
-                            auto_layout_executed = True
-                            print(f"Auto-analisi layout completata con {provider_name}")
+                                layout_analysis = {
+                                    'prompt_name': default_prompt['name'],
+                                    'prompt_id': default_prompt['id'],
+                                    'provider': provider_name,
+                                    'page_count': page_count,
+                                    'analysis': analysis
+                                }
+                                auto_layout_executed = True
+                                print(f"Auto-analisi layout completata con {provider_name} su {page_count} pagine")
+
+                            except Exception as e:
+                                print(f"Errore analisi documento: {str(e)}")
+                                layout_analysis = {
+                                    'prompt_name': default_prompt['name'],
+                                    'prompt_id': default_prompt['id'],
+                                    'provider': provider_name,
+                                    'page_count': page_count,
+                                    'error': str(e)
+                                }
+                                auto_layout_executed = True
 
             except Exception as e:
                 import traceback
                 print(f"Errore durante auto-analisi layout: {traceback.format_exc()}")
                 # Non bloccare l'upload se l'analisi layout fallisce
+
+        # Auto-estrazione dimensioni per PDF multi-pagina se esiste prompt predefinito
+        dimensions_extraction = None
+        auto_dimensions_executed = False
+
+        if page_count > 1:
+            try:
+                # Controlla se esiste un prompt dimensioni predefinito
+                dimension_prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+
+                if os.path.exists(dimension_prompts_file):
+                    with open(dimension_prompts_file, 'r', encoding='utf-8') as f:
+                        dimension_data = json.load(f)
+
+                    # Trova il prompt predefinito
+                    default_dim_prompt = None
+                    for prompt in dimension_data.get('prompts', []):
+                        if prompt.get('is_default', False):
+                            default_dim_prompt = prompt
+                            break
+
+                    if default_dim_prompt:
+                        print(f"PDF multi-pagina rilevato ({page_count} pagine) - Esecuzione auto-estrazione dimensioni con prompt predefinito: {default_dim_prompt['name']}")
+
+                        # Esegui estrazione dimensioni
+                        current_provider = ai_manager.get_current_provider()
+                        if current_provider:
+                            provider_name = ai_manager.get_current_provider_name()
+
+                            # Estrai dimensioni pagina per pagina
+                            results = []
+                            for page_num in range(page_count):
+                                page_image_b64 = processor.get_page_image(page_num=page_num)
+
+                                try:
+                                    dimensions_text = current_provider.analyze_vision(
+                                        default_dim_prompt['content'],
+                                        page_image_b64
+                                    )
+                                    results.append({
+                                        'page': page_num + 1,
+                                        'dimensions': dimensions_text
+                                    })
+                                    print(f"Dimensioni estratte per pagina {page_num + 1}")
+                                except Exception as e:
+                                    print(f"Errore estrazione dimensioni pagina {page_num + 1}: {str(e)}")
+                                    results.append({
+                                        'page': page_num + 1,
+                                        'error': str(e)
+                                    })
+
+                            dimensions_extraction = {
+                                'prompt_name': default_dim_prompt['name'],
+                                'prompt_id': default_dim_prompt['id'],
+                                'provider': provider_name,
+                                'results': results
+                            }
+                            auto_dimensions_executed = True
+                            print(f"Auto-estrazione dimensioni completata con {provider_name} su {page_count} pagine")
+
+            except Exception as e:
+                import traceback
+                print(f"Errore durante auto-estrazione dimensioni: {traceback.format_exc()}")
+                # Non bloccare l'upload se l'estrazione dimensioni fallisce
 
         return jsonify({
             'success': True,
@@ -1664,7 +1732,9 @@ def upload_file():
             'extraction_method': extraction_method,
             'type_counts': type_counts,
             'auto_layout_executed': auto_layout_executed,
-            'layout_analysis': layout_analysis
+            'layout_analysis': layout_analysis,
+            'auto_dimensions_executed': auto_dimensions_executed,
+            'dimensions_extraction': dimensions_extraction
         })
 
     return jsonify({'error': 'Invalid file type'}), 400

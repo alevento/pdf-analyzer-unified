@@ -11,7 +11,7 @@ Supported providers:
 import os
 import json
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, List
 
 class AIProvider(ABC):
     """Abstract base class for AI providers"""
@@ -25,8 +25,8 @@ class AIProvider(ABC):
         pass
 
     @abstractmethod
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
-        """Analyze image with AI vision"""
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
+        """Analyze image(s) with AI vision. Accepts single image or list of images."""
         pass
 
     @abstractmethod
@@ -78,13 +78,35 @@ class ClaudeProvider(AIProvider):
         )
         return message.content[0].text
 
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
         if not self.client:
             raise Exception("Claude client not initialized")
 
-        # Remove data URL prefix if present
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
+        # Convert single image to list for uniform processing
+        images = [image_base64] if isinstance(image_base64, str) else image_base64
+
+        # Build content array with all images
+        content = []
+
+        for img in images:
+            # Remove data URL prefix if present
+            if ',' in img:
+                img = img.split(',')[1]
+
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img
+                }
+            })
+
+        # Add prompt text at the end
+        content.append({
+            "type": "text",
+            "text": prompt
+        })
 
         message = self.client.messages.create(
             model="claude-opus-4-1-20250805",
@@ -92,20 +114,7 @@ class ClaudeProvider(AIProvider):
             temperature=1.0,
             messages=[{
                 "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": image_base64
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
+                "content": content
             }]
         )
         return message.content[0].text
@@ -165,13 +174,35 @@ class ClaudeSonnetProvider(AIProvider):
         )
         return message.content[0].text
 
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
         if not self.client:
             raise Exception("Claude Sonnet client not initialized")
 
-        # Remove data URL prefix if present
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
+        # Convert single image to list for uniform processing
+        images = [image_base64] if isinstance(image_base64, str) else image_base64
+
+        # Build content array with all images
+        content = []
+
+        for img in images:
+            # Remove data URL prefix if present
+            if ',' in img:
+                img = img.split(',')[1]
+
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img
+                }
+            })
+
+        # Add prompt text at the end
+        content.append({
+            "type": "text",
+            "text": prompt
+        })
 
         message = self.client.messages.create(
             model="claude-sonnet-4-5-20250929",
@@ -179,20 +210,7 @@ class ClaudeSonnetProvider(AIProvider):
             temperature=1.0,
             messages=[{
                 "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": image_base64
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
+                "content": content
             }]
         )
         return message.content[0].text
@@ -252,25 +270,31 @@ class OpenAIProvider(AIProvider):
         )
         return response.choices[0].message.content
 
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
         if not self.client:
             raise Exception("OpenAI client not initialized")
 
-        # Ensure proper data URL format
-        if not image_base64.startswith('data:'):
-            image_base64 = f"data:image/png;base64,{image_base64}"
+        # Convert single image to list for uniform processing
+        images = [image_base64] if isinstance(image_base64, str) else image_base64
+
+        # Build content array
+        content = [{"type": "text", "text": prompt}]
+
+        for img in images:
+            # Ensure proper data URL format
+            if not img.startswith('data:'):
+                img = f"data:image/png;base64,{img}"
+
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": img}
+            })
 
         response = self.client.chat.completions.create(
             model="gpt-4.1-2025-04-14",
             messages=[{
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_base64}
-                    }
-                ]
+                "content": content
             }],
             max_tokens=4096,
             temperature=0.7
@@ -353,7 +377,7 @@ class GeminiProvider(AIProvider):
 
         return response.text
 
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
         if not self.client:
             raise Exception("Gemini client not initialized")
 
@@ -362,13 +386,21 @@ class GeminiProvider(AIProvider):
         import io
         import google.generativeai as genai
 
-        # Remove data URL prefix if present
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
+        # Convert single image to list for uniform processing
+        images = [image_base64] if isinstance(image_base64, str) else image_base64
 
-        # Convert base64 to PIL Image
-        image_data = base64.b64decode(image_base64)
-        image = Image.open(io.BytesIO(image_data))
+        # Build content list with prompt first, then images
+        content = [prompt]
+
+        for img in images:
+            # Remove data URL prefix if present
+            if ',' in img:
+                img = img.split(',')[1]
+
+            # Convert base64 to PIL Image
+            image_data = base64.b64decode(img)
+            pil_image = Image.open(io.BytesIO(image_data))
+            content.append(pil_image)
 
         generation_config = genai.GenerationConfig(
             temperature=0.0,
@@ -378,7 +410,7 @@ class GeminiProvider(AIProvider):
         )
 
         response = self.client.generate_content(
-            [prompt, image],
+            content,
             generation_config=generation_config
         )
 
@@ -488,25 +520,31 @@ class NovitaAIProvider(AIProvider):
         )
         return response.choices[0].message.content
 
-    def analyze_vision(self, prompt: str, image_base64: str) -> str:
+    def analyze_vision(self, prompt: str, image_base64: Union[str, List[str]]) -> str:
         if not self.client:
             raise Exception("Novita AI client not initialized")
 
-        # Ensure proper data URL format
-        if not image_base64.startswith('data:'):
-            image_base64 = f"data:image/png;base64,{image_base64}"
+        # Convert single image to list for uniform processing
+        images = [image_base64] if isinstance(image_base64, str) else image_base64
+
+        # Build content array
+        content = [{"type": "text", "text": prompt}]
+
+        for img in images:
+            # Ensure proper data URL format
+            if not img.startswith('data:'):
+                img = f"data:image/png;base64,{img}"
+
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": img}
+            })
 
         response = self.client.chat.completions.create(
             model="qwen/qwen3-vl-235b-a22b-thinking",
             messages=[{
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_base64}
-                    }
-                ]
+                "content": content
             }],
             max_tokens=32768,
             temperature=0.6,

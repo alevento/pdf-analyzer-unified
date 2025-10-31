@@ -236,18 +236,61 @@ async function uploadFile() {
             if (data.auto_layout_executed && data.layout_analysis) {
                 console.log('Auto-analisi layout eseguita:', data.layout_analysis);
 
+                // Determina se c'è un errore o un'analisi
+                const hasError = data.layout_analysis.error;
+                const borderColor = hasError ? '#f44336' : '#2196f3';
+
                 const analysisHtml = `
-                    <div class="ai-result" style="margin-top: 15px; border-top: 2px solid #2196f3; padding-top: 15px;">
-                        <h3 style="color: #2196f3; margin-bottom: 10px;">
+                    <div class="ai-result" style="margin-top: 15px; border-top: 2px solid ${borderColor}; padding-top: 15px;">
+                        <h3 style="color: ${borderColor}; margin-bottom: 10px;">
                             🗂️ Analisi Layout Automatica
                         </h3>
-                        <div style="background-color: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                        <div style="background-color: ${hasError ? '#ffebee' : '#e3f2fd'}; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
                             <strong>Prompt:</strong> ${escapeHtml(data.layout_analysis.prompt_name)}<br>
                             <strong>Provider:</strong> ${escapeHtml(data.layout_analysis.provider)}<br>
-                            <strong>Pagine analizzate:</strong> ${data.layout_analysis.results.length}
+                            <strong>Pagine analizzate:</strong> ${data.layout_analysis.page_count}
                         </div>
                         <div style="max-height: 400px; overflow-y: auto;">
-                            ${data.layout_analysis.results.map(result => {
+                            ${hasError ? `
+                                <div class="ai-result-item" style="border-left: 3px solid #f44336;">
+                                    <div style="color: #f44336; margin-top: 5px;">❌ Errore: ${escapeHtml(data.layout_analysis.error)}</div>
+                                </div>
+                            ` : `
+                                <div class="ai-result-item" style="border-left: 3px solid #2196f3;">
+                                    <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(data.layout_analysis.analysis)}</pre>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+
+                // Aggiungi i risultati al textList
+                textList.innerHTML = (textList.innerHTML || '') + analysisHtml;
+
+                // Aggiorna lo status
+                if (hasError) {
+                    status.textContent = `PDF caricato ma analisi layout fallita`;
+                } else {
+                    status.textContent = `PDF caricato con analisi layout automatica completata (${data.layout_analysis.page_count} pagine)`;
+                }
+            }
+
+            // Mostra risultati estrazione dimensioni automatica se eseguita
+            if (data.auto_dimensions_executed && data.dimensions_extraction) {
+                console.log('Auto-estrazione dimensioni eseguita:', data.dimensions_extraction);
+
+                const dimensionsHtml = `
+                    <div class="ai-result" style="margin-top: 15px; border-top: 2px solid #4caf50; padding-top: 15px;">
+                        <h3 style="color: #4caf50; margin-bottom: 10px;">
+                            📐 Estrazione Dimensioni Automatica
+                        </h3>
+                        <div style="background-color: #e8f5e9; padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                            <strong>Prompt:</strong> ${escapeHtml(data.dimensions_extraction.prompt_name)}<br>
+                            <strong>Provider:</strong> ${escapeHtml(data.dimensions_extraction.provider)}<br>
+                            <strong>Pagine elaborate:</strong> ${data.dimensions_extraction.results.length}
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${data.dimensions_extraction.results.map(result => {
                                 if (result.error) {
                                     return `
                                         <div class="ai-result-item" style="border-left: 3px solid #f44336;">
@@ -257,9 +300,9 @@ async function uploadFile() {
                                     `;
                                 } else {
                                     return `
-                                        <div class="ai-result-item" style="border-left: 3px solid #2196f3;">
+                                        <div class="ai-result-item" style="border-left: 3px solid #4caf50;">
                                             <strong>Pagina ${result.page}:</strong>
-                                            <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(result.analysis)}</pre>
+                                            <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(result.dimensions)}</pre>
                                         </div>
                                     `;
                                 }
@@ -269,10 +312,20 @@ async function uploadFile() {
                 `;
 
                 // Aggiungi i risultati al textList
-                textList.innerHTML = (textList.innerHTML || '') + analysisHtml;
+                textList.innerHTML = (textList.innerHTML || '') + dimensionsHtml;
 
                 // Aggiorna lo status
-                status.textContent = `PDF caricato con analisi layout automatica completata (${data.layout_analysis.results.length} pagine)`;
+                const layoutStatus = status.textContent;
+                const successCount = data.dimensions_extraction.results.filter(r => !r.error).length;
+                const errorCount = data.dimensions_extraction.results.filter(r => r.error).length;
+
+                if (errorCount === 0) {
+                    status.textContent = layoutStatus + ` + dimensioni estratte (${successCount} pagine)`;
+                } else if (successCount > 0) {
+                    status.textContent = layoutStatus + ` + dimensioni estratte (${successCount}/${data.dimensions_extraction.results.length} pagine)`;
+                } else {
+                    status.textContent = layoutStatus + ` (estrazione dimensioni fallita)`;
+                }
             }
         } else {
             status.textContent = 'Errore: ' + (data.error || 'Errore sconosciuto');

@@ -1,6 +1,156 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.63 (2025-10-31)
+### Estrazione Automatica Durante Navigazione Pagine
+Aggiunta estrazione automatica dei numeri con evidenziazione durante la navigazione tra pagine.
+
+### Problema
+Nella v0.62, la navigazione tra pagine mostrava solo l'immagine pulita:
+- ❌ Nessun rettangolo evidenziato sulle nuove pagine
+- ❌ Nessuna lista di numeri estratti nel pannello destro
+- ❌ Esperienza incoerente rispetto alla prima pagina
+
+**Comportamento precedente**:
+```
+Pagina 1 (upload): Immagine con rettangoli + lista numeri ✅
+Pagina 2 (navigazione): Solo immagine pulita ❌
+Pagina 3 (navigazione): Solo immagine pulita ❌
+```
+
+### Soluzione
+Estrazione automatica dei numeri durante la navigazione con lo stesso metodo usato per la prima pagina.
+
+**1. Variabili Globali per Cache (unified.js righe 13-14)**:
+```javascript
+let currentExtractionMethod = null; // 'pdfplumber', 'ocr', or 'none'
+let currentMinConfidence = 60; // OCR confidence threshold
+```
+
+**2. Salvataggio Metodo Estrazione durante Upload (unified.js righe 281-282)**:
+```javascript
+// Salva il metodo di estrazione usato per questa pagina
+currentExtractionMethod = data.extraction_method || 'none';
+```
+
+**3. Reset Cache per Nuovo File (unified.js righe 172-175)**:
+```javascript
+// Reset cache dimensioni e metodo estrazione per nuovo file
+currentExtractedDimensions = null;
+currentProviderName = null;
+currentExtractionMethod = null;
+```
+
+**4. Estrazione Automatica in navigateToPage (unified.js righe 652-738)**:
+```javascript
+async function navigateToPage(newPage) {
+    // Show loading indicator
+    textList.innerHTML = '<p class="loading">Caricamento pagina...</p>';
+
+    // If we have an extraction method, extract numbers with boxes
+    if (currentExtractionMethod && currentExtractionMethod !== 'none') {
+        // Use extract_numbers_advanced to get image with boxes and numbers
+        const response = await fetch('/extract_numbers_advanced', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                page_num: newPage,
+                min_conf: currentMinConfidence
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            currentPage = newPage;
+            currentNumbers = data.numbers;
+            currentDisplayData = data.numbers;
+
+            // Display image with boxes
+            displayImage(data.image);
+
+            // Display numbers list
+            displayNumbersList(data.numbers);
+
+            // Update counter and legend
+            numberCount.textContent = `Trovati ${data.count} numeri (${data.count_0deg} orizzontali + ${data.count_90deg} verticali)`;
+            numberCount.style.display = 'block';
+            legend.style.display = 'flex';
+        }
+    } else {
+        // No extraction method, just load plain image
+        const response = await fetch(`/get_page/${newPage}`);
+        // ...
+    }
+}
+```
+
+### Comportamento
+
+**Workflow Utente**:
+```
+1. Carica PDF multi-pagina
+2. Pagina 1: Vede immagine con rettangoli + lista numeri estratti
+3. Clicca ► (o freccia destra)
+4. Pagina 2: Vede immagine con rettangoli + lista numeri estratti ✅
+5. Clicca ► ancora
+6. Pagina 3: Vede immagine con rettangoli + lista numeri estratti ✅
+```
+
+**Comportamento Tecnico**:
+- Upload determina il metodo migliore (pdfplumber per PDF testuali, OCR per rasterizzati)
+- Salva il metodo in `currentExtractionMethod`
+- Ad ogni cambio pagina, chiama `/extract_numbers_advanced` con:
+  - `page_num`: Nuova pagina
+  - `min_conf`: Soglia di confidenza (default 60%)
+- Riceve immagine con rettangoli disegnati + array di numeri
+- Aggiorna UI: immagine, lista, contatore, legenda
+
+### Funzionalità
+- 🔄 **Estrazione Consistente**: Stesso metodo usato per tutte le pagine
+- 📦 **Rettangoli Evidenziati**: Numeri visualizzati con box colorati su ogni pagina
+- 📋 **Lista Aggiornata**: Pannello destro mostra numeri della pagina corrente
+- 📊 **Contatore Dinamico**: Mostra conteggio orizzontali + verticali
+- 🎨 **Legenda Visibile**: Colori blu (orizzontali) e rossi (verticali)
+- ⬇️ **Download Abilitato**: Pulsanti download attivi per ogni pagina
+- ⚡ **Feedback Loading**: Messaggio "Caricamento pagina..." durante estrazione
+- 🔍 **Click Interattivo**: Numeri cliccabili per evidenziazione
+
+### Endpoint Utilizzato
+`POST /extract_numbers_advanced` (unified_app.py righe 1836-1895):
+- Parametri: `page_num` (int), `min_conf` (int)
+- Restituisce: `image` (base64 con rettangoli), `numbers` (array), `count`, `count_0deg`, `count_90deg`
+- Funziona su qualsiasi tipo di PDF (testuale, ibrido, rasterizzato)
+
+### Esempio Output
+
+**Prima (v0.62)**:
+```
+Pagina 1: [Immagine con 45 numeri evidenziati] → Lista: 45 numeri
+Pagina 2: [Immagine pulita] → "Nessun dato"
+```
+
+**Dopo (v0.63)**:
+```
+Pagina 1: [Immagine con 45 numeri evidenziati] → Lista: 45 numeri
+Pagina 2: [Immagine con 38 numeri evidenziati] → Lista: 38 numeri
+Pagina 3: [Immagine con 52 numeri evidenziati] → Lista: 52 numeri
+```
+
+### Benefici
+- ✅ **Esperienza Coerente**: Tutte le pagine hanno la stessa visualizzazione
+- ✅ **Navigazione Produttiva**: Vedi i numeri estratti senza azioni manuali
+- ✅ **Zero Configurazione**: Usa automaticamente il metodo migliore
+- ✅ **Performance**: Estrazione on-demand solo quando navighi
+- ✅ **Fallback Intelligente**: Se nessun metodo disponibile, mostra solo immagine
+
+### File Modificati
+- `static/unified.js` (righe 13-14, 172-175, 281-282, 652-738): Extraction method caching and auto-extraction during navigation
+- `VERSION.txt`: Updated to 0.63
+- `CHANGELOG.md`: Documented auto-extraction during page navigation
+
+---
+
 ## v0.62 (2025-10-31)
 ### Navigazione Pagine PDF
 Aggiunta possibilità di navigare tra le pagine di un documento PDF multi-pagina direttamente dall'interfaccia principale.

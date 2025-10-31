@@ -10,6 +10,8 @@ let currentDisplayData = null; // Store currently displayed data for download
 let currentPdfFile = null; // Store current uploaded PDF file
 let currentExtractedDimensions = null; // Store dimensions from auto-extraction for reuse
 let currentProviderName = null; // Store provider name used for dimensions extraction
+let currentExtractionMethod = null; // Store extraction method used for auto-extraction ('pdfplumber', 'ocr', or 'none')
+let currentMinConfidence = 60; // Store confidence threshold for OCR extraction
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
@@ -167,9 +169,10 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append('file', file);
 
-    // Reset cache dimensioni per nuovo file
+    // Reset cache dimensioni e metodo estrazione per nuovo file
     currentExtractedDimensions = null;
     currentProviderName = null;
+    currentExtractionMethod = null;
 
     uploadBtn.disabled = true;
 
@@ -275,6 +278,9 @@ async function uploadFile() {
 
             // Display first page with boxes
             displayImage(data.page_image);
+
+            // Salva il metodo di estrazione usato per questa pagina
+            currentExtractionMethod = data.extraction_method || 'none';
 
             // Se ci sono numeri estratti automaticamente, visualizzali
             if (data.has_numbers && data.numbers && data.numbers.length > 0) {
@@ -655,29 +661,76 @@ async function navigateToPage(newPage) {
         img.style.opacity = '0.5';
     }
 
+    // Clear current numbers display while loading
+    textList.innerHTML = '<p class="loading">Caricamento pagina...</p>';
+
     try {
-        // Fetch the new page image
-        const response = await fetch(`/get_page/${newPage}`);
-        const data = await response.json();
-
-        if (data.success && data.page_image) {
-            currentPage = newPage;
-            displayImage(data.page_image);
-
-            // Update page selectors in extraction tabs
-            [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
-                if (select) {
-                    select.value = newPage + 1;
-                }
+        // If we have an extraction method, extract numbers with boxes for the new page
+        // Otherwise just load the plain image
+        if (currentExtractionMethod && currentExtractionMethod !== 'none') {
+            // Use extract_numbers_advanced to get image with boxes and numbers
+            const response = await fetch('/extract_numbers_advanced', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    page_num: newPage,
+                    min_conf: currentMinConfidence
+                })
             });
+
+            const data = await response.json();
+
+            if (data.success) {
+                currentPage = newPage;
+                currentNumbers = data.numbers;
+                currentDisplayData = data.numbers;
+
+                // Display image with boxes
+                displayImage(data.image);
+
+                // Display numbers list
+                displayNumbersList(data.numbers);
+
+                // Update counter
+                numberCount.textContent = `Trovati ${data.count} numeri (${data.count_0deg} orizzontali + ${data.count_90deg} verticali)`;
+                numberCount.style.display = 'block';
+                legend.style.display = 'flex';
+
+                // Show download buttons
+                document.getElementById('downloadButtons').style.display = 'block';
+            } else {
+                console.error('Failed to extract numbers:', data.error);
+                textList.innerHTML = '<p class="placeholder">Errore durante l\'estrazione</p>';
+                if (img) img.style.opacity = '1';
+            }
         } else {
-            console.error('Failed to load page:', data.error);
-            if (img) {
-                img.style.opacity = '1';
+            // No extraction method, just load plain image
+            const response = await fetch(`/get_page/${newPage}`);
+            const data = await response.json();
+
+            if (data.success && data.page_image) {
+                currentPage = newPage;
+                displayImage(data.page_image);
+                textList.innerHTML = '<p class="placeholder">Nessuna estrazione automatica</p>';
+            } else {
+                console.error('Failed to load page:', data.error);
+                if (img) img.style.opacity = '1';
             }
         }
+
+        // Update page selectors in extraction tabs
+        [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
+            if (select) {
+                select.value = newPage + 1;
+            }
+        });
+
+        // Update page indicator
+        updatePageIndicator();
+
     } catch (error) {
         console.error('Error navigating to page:', error);
+        textList.innerHTML = '<p class="placeholder">Errore di connessione</p>';
         if (img) {
             img.style.opacity = '1';
         }

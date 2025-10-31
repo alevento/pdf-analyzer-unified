@@ -1,6 +1,177 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.59 (2025-10-29)
+### UX Improvements: Riepilogo Dimensioni, Provider Preferito e Progressione
+Migliorata l'esperienza utente con tre nuove funzionalità chiave.
+
+### 1. Riepilogo Dimensioni con Riferimenti Pagina
+
+**Problema**: Le dimensioni estratte erano mostrate solo come testo grezzo per pagina, difficili da consultare rapidamente.
+
+**Soluzione**: Tabella riepilogo con tutte le dimensioni trovate e i loro riferimenti pagina.
+
+**Funzionalità**:
+- 📊 **Tabella Riepilogo**: Estrae automaticamente tutte le dimensioni dal testo di estrazione
+- 🔢 **Riconoscimento Pattern**: Identifica numeri con unità (mm, cm, m, in, inches)
+- 📄 **Riferimento Pagina**: Badge colorato indica la pagina di origine
+- 📂 **Dettagli Espandibili**: Sezione `<details>` per visualizzare i testi completi per pagina
+
+**UI**:
+```
+📊 Riepilogo Dimensioni Trovate:
+┌─────────────┬────────┐
+│ Dimensione  │ Pagina │
+├─────────────┼────────┤
+│ 432 mm      │  [1]   │
+│ 765 mm      │  [1]   │
+│ 26 mm       │  [2]   │
+│ 63.5 mm     │  [2]   │
+└─────────────┴────────┘
+
+📄 Dettagli per Pagina (espandibile)
+```
+
+**Codice (unified.js righe 282-326)**:
+```javascript
+// Estrai tutte le dimensioni con regex
+const dimRegex = /(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m|"|in|inch|inches)?/gi;
+const matches = result.dimensions.matchAll(dimRegex);
+
+// Crea tabella riepilogo
+<table>
+  <tr>
+    <td>${dim.context}</td>
+    <td><span style="background-color: #4caf50">${dim.page}</span></td>
+  </tr>
+</table>
+```
+
+---
+
+### 2. Provider AI Preferito
+
+**Problema**: L'utente doveva selezionare manualmente il provider preferito ogni volta che ricaricava la pagina.
+
+**Soluzione**: Possibilità di salvare un provider come preferito con caricamento automatico.
+
+**Funzionalità**:
+- ⭐ **Pulsante Stella**: Imposta/rimuovi provider come preferito
+- 💾 **Salvataggio Persistente**: Utilizza localStorage del browser
+- 🔄 **Caricamento Automatico**: Al refresh, carica automaticamente il provider preferito
+- 🏷️ **Indicatore Visivo**: Stella ⭐ nel nome del provider preferito nella lista
+- 🎨 **Feedback Visivo**: Pulsante arancione scuro quando il provider corrente è preferito
+
+**UI**:
+```
+Provider AI: [⭐ Gemini 2.5 Pro ▼] [⭐]
+              ↑ provider preferito    ↑ pulsante imposta/rimuovi
+```
+
+**Codice (unified.js righe 2257-2372)**:
+```javascript
+// Salva in localStorage
+localStorage.setItem('preferredAIProvider', providerKey);
+
+// Carica al startup
+const preferredProvider = localStorage.getItem('preferredAIProvider');
+if (preferredProvider && preferredProvider !== data.current) {
+    select.value = preferredProvider;
+    switchAIProvider(true); // Switch silenzioso
+}
+```
+
+**HTML (unified.html righe 679-688)**:
+```html
+<div style="display: flex; gap: 8px;">
+    <select id="aiProviderSelect">...</select>
+    <button onclick="togglePreferredProvider()">⭐</button>
+</div>
+```
+
+---
+
+### 3. Indicatore Progressione Workflow
+
+**Problema**: Durante l'upload di PDF multi-pagina con auto-analisi (layout + dimensioni), l'utente vedeva solo "Caricamento..." senza feedback sullo stato.
+
+**Soluzione**: Loader animato con messaggi di progressione che cambiano dinamicamente.
+
+**Funzionalità**:
+- 🔄 **Spinner Animato**: Icona rotante CSS durante il caricamento
+- 📝 **Messaggi Progressivi**: Testi che cambiano ogni 1.5s
+- ⏱️ **Feedback Continuo**: L'utente sa sempre cosa sta succedendo
+- 🎯 **Auto-Stop**: Animazione si ferma quando il caricamento completa
+
+**Sequenza Messaggi**:
+1. 📤 Caricamento PDF...
+2. 🔍 Analisi documento...
+3. 🗂️ Estrazione layout...
+4. 📐 Estrazione dimensioni...
+
+**Codice (unified.js righe 139-186)**:
+```javascript
+const progressMessages = [
+    '📤 Caricamento PDF...',
+    '🔍 Analisi documento...',
+    '🗂️ Estrazione layout...',
+    '📐 Estrazione dimensioni...'
+];
+
+const progressInterval = setInterval(() => {
+    status.textContent = progressMessages[messageIndex];
+    messageIndex = (messageIndex + 1) % progressMessages.length;
+}, 1500);
+
+// Spinner CSS
+<div class="spinner" style="
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #4caf50;
+    animation: spin 1s linear infinite;
+"></div>
+```
+
+---
+
+### File Modificati
+
+**static/unified.js**:
+- Righe 139-186: Loader animato con progressione
+- Righe 282-381: Riepilogo dimensioni con tabella
+- Righe 2257-2372: Provider preferito (localStorage, toggle, UI update)
+
+**templates/unified.html**:
+- Righe 679-688: UI pulsante stella per provider preferito
+
+---
+
+### Vantaggi
+
+**Riepilogo Dimensioni**:
+- ✅ Vista d'insieme immediata di tutte le dimensioni
+- ✅ Riferimenti pagina chiari e cliccabili
+- ✅ Facile consultazione senza scorrere tutto il testo
+
+**Provider Preferito**:
+- ✅ Zero configurazione ad ogni sessione
+- ✅ Workflow più veloce
+- ✅ Salvataggio locale (no server-side)
+
+**Progressione Workflow**:
+- ✅ Feedback visivo costante
+- ✅ Riduce l'ansia dell'attesa
+- ✅ User experience professionale
+
+---
+
+### Note Tecniche
+
+- **localStorage**: Persistenza locale nel browser, non richiede autenticazione
+- **Regex Dimensioni**: Pattern `/(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m|"|in|inch|inches)?/gi`
+- **CSS Animation**: @keyframes per spinner senza librerie esterne
+- **Silent Switch**: Parametro `silent` in `switchAIProvider()` per caricamento automatico
+
+
 ## v0.58 (2025-10-29)
 ### Auto-Estrazione Dimensioni al Caricamento
 Aggiunta estrazione automatica delle dimensioni durante il caricamento di PDF multi-pagina quando esiste un prompt dimensioni predefinito.

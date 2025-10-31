@@ -135,8 +135,45 @@ async function uploadFile() {
     formData.append('file', file);
 
     uploadBtn.disabled = true;
-    status.textContent = 'Caricamento...';
-    imageContainer.innerHTML = '<p class="loading">Caricamento PDF...</p>';
+
+    // Crea loader con progressione animata
+    const progressMessages = [
+        '📤 Caricamento PDF...',
+        '🔍 Analisi documento...',
+        '🗂️ Estrazione layout...',
+        '📐 Estrazione dimensioni...'
+    ];
+    let messageIndex = 0;
+
+    // Aggiorna status con animazione
+    const updateStatusMessage = () => {
+        status.textContent = progressMessages[messageIndex];
+        messageIndex = (messageIndex + 1) % progressMessages.length;
+    };
+
+    updateStatusMessage();
+    const progressInterval = setInterval(updateStatusMessage, 1500);
+
+    imageContainer.innerHTML = `
+        <div class="loading-container" style="text-align: center; padding: 40px;">
+            <div class="spinner" style="
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #4caf50;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+            "></div>
+            <p style="color: #666; font-size: 14px;">Elaborazione in corso...</p>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    `;
     textList.innerHTML = '<p class="placeholder">Attendi...</p>';
 
     try {
@@ -144,6 +181,9 @@ async function uploadFile() {
             method: 'POST',
             body: formData
         });
+
+        // Ferma animazione progressione
+        clearInterval(progressInterval);
 
         const data = await response.json();
 
@@ -279,6 +319,52 @@ async function uploadFile() {
             if (data.auto_dimensions_executed && data.dimensions_extraction) {
                 console.log('Auto-estrazione dimensioni eseguita:', data.dimensions_extraction);
 
+                // Crea riepilogo dimensioni trovate
+                const allDimensions = [];
+                data.dimensions_extraction.results.forEach(result => {
+                    if (!result.error && result.dimensions) {
+                        // Estrai numeri che sembrano dimensioni (numero + unità)
+                        const dimRegex = /(\d+(?:[.,]\d+)?)\s*(?:mm|cm|m|"|in|inch|inches)?/gi;
+                        const matches = result.dimensions.matchAll(dimRegex);
+                        for (const match of matches) {
+                            allDimensions.push({
+                                value: match[1],
+                                page: result.page,
+                                context: match[0]
+                            });
+                        }
+                    }
+                });
+
+                // Crea tabella riepilogo
+                const summaryHtml = allDimensions.length > 0 ? `
+                    <div style="background-color: #f1f8e9; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        <strong>📊 Riepilogo Dimensioni Trovate:</strong>
+                        <div style="max-height: 150px; overflow-y: auto; margin-top: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="background-color: #c5e1a5;">
+                                        <th style="padding: 4px; text-align: left; border: 1px solid #aed581;">Dimensione</th>
+                                        <th style="padding: 4px; text-align: center; border: 1px solid #aed581; width: 80px;">Pagina</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${allDimensions.map(dim => `
+                                        <tr>
+                                            <td style="padding: 4px; border: 1px solid #dcedc8;">${escapeHtml(dim.context)}</td>
+                                            <td style="padding: 4px; text-align: center; border: 1px solid #dcedc8;">
+                                                <span style="background-color: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;">
+                                                    ${dim.page}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : '';
+
                 const dimensionsHtml = `
                     <div class="ai-result" style="margin-top: 15px; border-top: 2px solid #4caf50; padding-top: 15px;">
                         <h3 style="color: #4caf50; margin-bottom: 10px;">
@@ -289,25 +375,31 @@ async function uploadFile() {
                             <strong>Provider:</strong> ${escapeHtml(data.dimensions_extraction.provider)}<br>
                             <strong>Pagine elaborate:</strong> ${data.dimensions_extraction.results.length}
                         </div>
-                        <div style="max-height: 400px; overflow-y: auto;">
-                            ${data.dimensions_extraction.results.map(result => {
-                                if (result.error) {
-                                    return `
-                                        <div class="ai-result-item" style="border-left: 3px solid #f44336;">
-                                            <strong>Pagina ${result.page}:</strong>
-                                            <div style="color: #f44336; margin-top: 5px;">❌ Errore: ${escapeHtml(result.error)}</div>
-                                        </div>
-                                    `;
-                                } else {
-                                    return `
-                                        <div class="ai-result-item" style="border-left: 3px solid #4caf50;">
-                                            <strong>Pagina ${result.page}:</strong>
-                                            <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(result.dimensions)}</pre>
-                                        </div>
-                                    `;
-                                }
-                            }).join('')}
-                        </div>
+                        ${summaryHtml}
+                        <details open>
+                            <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px; color: #4caf50;">
+                                📄 Dettagli per Pagina
+                            </summary>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                ${data.dimensions_extraction.results.map(result => {
+                                    if (result.error) {
+                                        return `
+                                            <div class="ai-result-item" style="border-left: 3px solid #f44336;">
+                                                <strong>Pagina ${result.page}:</strong>
+                                                <div style="color: #f44336; margin-top: 5px;">❌ Errore: ${escapeHtml(result.error)}</div>
+                                            </div>
+                                        `;
+                                    } else {
+                                        return `
+                                            <div class="ai-result-item" style="border-left: 3px solid #4caf50;">
+                                                <strong>Pagina ${result.page}:</strong>
+                                                <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(result.dimensions)}</pre>
+                                            </div>
+                                        `;
+                                    }
+                                }).join('')}
+                            </div>
+                        </details>
                     </div>
                 `;
 
@@ -320,9 +412,9 @@ async function uploadFile() {
                 const errorCount = data.dimensions_extraction.results.filter(r => r.error).length;
 
                 if (errorCount === 0) {
-                    status.textContent = layoutStatus + ` + dimensioni estratte (${successCount} pagine)`;
+                    status.textContent = layoutStatus + ` + ${allDimensions.length} dimensioni estratte (${successCount} pagine)`;
                 } else if (successCount > 0) {
-                    status.textContent = layoutStatus + ` + dimensioni estratte (${successCount}/${data.dimensions_extraction.results.length} pagine)`;
+                    status.textContent = layoutStatus + ` + ${allDimensions.length} dimensioni estratte (${successCount}/${data.dimensions_extraction.results.length} pagine)`;
                 } else {
                     status.textContent = layoutStatus + ` (estrazione dimensioni fallita)`;
                 }
@@ -2162,25 +2254,46 @@ async function loadAIProviders() {
                 return;
             }
 
+            // Controlla provider preferito salvato
+            const preferredProvider = localStorage.getItem('preferredAIProvider');
+            let hasPreferred = false;
+
             // Add providers
             for (const [key, name] of Object.entries(data.providers)) {
                 const option = document.createElement('option');
                 option.value = key;
-                option.textContent = name;
+                // Aggiungi stella per provider preferito
+                const isPreferred = key === preferredProvider;
+                option.textContent = isPreferred ? `⭐ ${name}` : name;
                 if (key === data.current) {
                     option.selected = true;
                 }
                 select.appendChild(option);
+
+                if (isPreferred) {
+                    hasPreferred = true;
+                }
             }
 
             select.disabled = false;
+
+            // Se c'è un provider preferito diverso da quello corrente, cambia automaticamente
+            if (preferredProvider && preferredProvider !== data.current && data.providers[preferredProvider]) {
+                console.log(`Caricamento provider preferito: ${preferredProvider}`);
+                select.value = preferredProvider;
+                // Chiama switchAIProvider in modo silenzioso
+                setTimeout(() => switchAIProvider(true), 100);
+            } else {
+                // Aggiorna comunque il pulsante preferito
+                updatePreferredProviderButton();
+            }
         }
     } catch (error) {
         console.error('Error loading AI providers:', error);
     }
 }
 
-async function switchAIProvider() {
+async function switchAIProvider(silent = false) {
     const select = document.getElementById('aiProviderSelect');
     const providerKey = select.value;
 
@@ -2198,7 +2311,9 @@ async function switchAIProvider() {
         if (data.success) {
             // Update status display
             checkAIStatus();
-            status.textContent = `Provider cambiato: ${data.provider_name}`;
+            if (!silent) {
+                status.textContent = `Provider cambiato: ${data.provider_name}`;
+            }
             // Update button visibility based on capabilities
             if (data.capabilities) {
                 updateButtonsBasedOnCapabilities(data.capabilities);
@@ -2208,9 +2323,54 @@ async function switchAIProvider() {
             if (askBtnText) {
                 askBtnText.textContent = `Chiedi a ${data.provider_name}`;
             }
+            // Aggiorna UI pulsante preferito
+            updatePreferredProviderButton();
         }
     } catch (error) {
         console.error('Error switching AI provider:', error);
+    }
+}
+
+function togglePreferredProvider() {
+    const select = document.getElementById('aiProviderSelect');
+    const currentProvider = select.value;
+
+    if (!currentProvider) {
+        alert('Seleziona prima un provider AI');
+        return;
+    }
+
+    const preferredProvider = localStorage.getItem('preferredAIProvider');
+
+    if (preferredProvider === currentProvider) {
+        // Rimuovi preferito
+        localStorage.removeItem('preferredAIProvider');
+        status.textContent = 'Provider preferito rimosso';
+    } else {
+        // Imposta come preferito
+        localStorage.setItem('preferredAIProvider', currentProvider);
+        status.textContent = 'Provider impostato come preferito';
+    }
+
+    // Ricarica lista provider per aggiornare la stella
+    loadAIProviders();
+}
+
+function updatePreferredProviderButton() {
+    const select = document.getElementById('aiProviderSelect');
+    const btn = document.getElementById('setPreferredProviderBtn');
+
+    if (!select || !btn) return;
+
+    const currentProvider = select.value;
+    const preferredProvider = localStorage.getItem('preferredAIProvider');
+
+    if (currentProvider === preferredProvider) {
+        btn.style.backgroundColor = '#e67e22'; // Arancione scuro se è preferito
+        btn.title = 'Rimuovi come provider preferito';
+    } else {
+        btn.style.backgroundColor = '#f39c12'; // Arancione chiaro se non è preferito
+        btn.title = 'Imposta come provider preferito';
     }
 }
 

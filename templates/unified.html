@@ -676,9 +676,16 @@
                     <!-- AI Provider Selector -->
                     <div class="control-group" style="margin-bottom: 10px;">
                         <label for="aiProviderSelect" style="font-size: 14px; color: #2c3e50; margin-bottom: 4px;">Provider AI:</label>
-                        <select id="aiProviderSelect" style="width: 100%; padding: 6px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; background-color: white;" onchange="switchAIProvider()">
-                            <option value="">Caricamento...</option>
-                        </select>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select id="aiProviderSelect" style="flex: 1; padding: 6px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; background-color: white;" onchange="switchAIProvider()">
+                                <option value="">Caricamento...</option>
+                            </select>
+                            <button id="setPreferredProviderBtn" class="btn" onclick="togglePreferredProvider()"
+                                    style="padding: 6px 12px; font-size: 13px; background-color: #f39c12; flex-shrink: 0; min-width: 45px;"
+                                    title="Imposta/rimuovi come provider preferito">
+                                ⭐
+                            </button>
+                        </div>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <button class="btn" id="analyzeBtn" style="background-color: #9b59b6; width: 100%;" disabled>

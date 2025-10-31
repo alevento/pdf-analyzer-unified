@@ -125,7 +125,76 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Drag and Drop functionality
+    setupDragAndDrop();
 });
+
+function setupDragAndDrop() {
+    // Prevent default drag behaviors on the whole document
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Highlight drop area when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        imageContainer.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        imageContainer.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        imageContainer.classList.add('drag-over');
+    }
+
+    function unhighlight(e) {
+        imageContainer.classList.remove('drag-over');
+    }
+
+    // Handle dropped files
+    imageContainer.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            const file = files[0];
+
+            // Check if it's a PDF
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                // Set the file to the file input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                // Trigger file select handler
+                handleFileSelect();
+
+                // Show feedback
+                status.textContent = 'File PDF trascinato: ' + file.name + ' - Clicca "Carica PDF" per elaborare';
+                uploadBtn.disabled = false;
+
+                // Optional: Auto-upload after drop
+                // Uncomment the next line if you want automatic upload on drop
+                // uploadFile();
+            } else {
+                status.textContent = 'Errore: Solo file PDF sono supportati';
+                status.style.color = '#f44336';
+                setTimeout(() => {
+                    status.style.color = '';
+                }, 3000);
+            }
+        }
+    }
+}
 
 function handleFileSelect() {
     if (fileInput.files.length > 0) {

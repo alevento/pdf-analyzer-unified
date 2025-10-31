@@ -1,6 +1,152 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.64 (2025-10-31)
+### Caricamento PDF con Drag and Drop
+Aggiunta possibilità di caricare file PDF trascinandoli direttamente nella zona di visualizzazione.
+
+### Problema
+L'utente doveva:
+1. Cliccare sul pulsante "Sfoglia" o input file
+2. Navigare nelle cartelle del file system
+3. Selezionare il file PDF
+4. Cliccare "Apri"
+5. Cliccare "Carica PDF"
+
+**Limitazioni**:
+- ❌ Processo macchinoso per utenti frequenti
+- ❌ Nessun supporto drag and drop
+- ❌ UX non moderna
+
+### Soluzione
+Implementato sistema di drag and drop per caricare PDF trascinandoli nell'area di visualizzazione.
+
+**1. Stile CSS per Feedback Visivo (unified.html righe 463-473)**:
+```css
+/* Drag and Drop Styles */
+.image-container.drag-over {
+    background-color: #e3f2fd;
+    border: 2px dashed #2196f3;
+    transition: all 0.3s ease;
+}
+
+.image-container.drag-over .placeholder {
+    color: #2196f3;
+    font-weight: bold;
+}
+```
+
+**2. Placeholder Aggiornato (unified.html riga 763)**:
+```html
+<p class="placeholder">
+    📄 Carica un file PDF per iniziare<br>
+    <small>oppure trascina un file qui</small>
+</p>
+```
+
+**3. Setup Drag and Drop (unified.js righe 133-197)**:
+```javascript
+function setupDragAndDrop() {
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Highlight drop area when dragging
+    ['dragenter', 'dragover'].forEach(eventName => {
+        imageContainer.addEventListener(eventName, highlight, false);
+    });
+
+    // Handle dropped files
+    imageContainer.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const file = e.dataTransfer.files[0];
+
+        // Check if it's a PDF
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            // Set the file to the file input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+
+            // Show feedback
+            status.textContent = 'File PDF trascinato: ' + file.name;
+            uploadBtn.disabled = false;
+        } else {
+            status.textContent = 'Errore: Solo file PDF sono supportati';
+        }
+    }
+}
+```
+
+### Comportamento
+
+**Workflow Utente**:
+```
+1. Apri Esplora File/Finder
+2. Trascina file PDF sulla zona visualizzazione
+3. Vedi feedback visivo (bordo blu tratteggiato + sfondo azzurro)
+4. Rilascia il file
+5. File automaticamente selezionato
+6. Clicca "Carica PDF" per elaborare
+```
+
+**Feedback Visivo**:
+- **Durante Drag**: Bordo diventa blu tratteggiato, sfondo azzurro chiaro
+- **Testo Placeholder**: Diventa blu e grassetto
+- **Dopo Drop**: Messaggio "File PDF trascinato: nome.pdf"
+
+### Funzionalità
+- 🖱️ **Drag and Drop**: Trascina PDF direttamente nell'area
+- 🎨 **Feedback Visivo**: Bordo e colore cambiano durante il drag
+- ✅ **Validazione**: Accetta solo file PDF
+- 🚫 **Prevenzione Default**: Non apre il PDF nel browser
+- 📝 **Messaggio Chiaro**: Indica nome file trascinato
+- 🔄 **Compatibilità**: Funziona anche con selezione tradizionale
+
+### Validazione File
+```javascript
+// Accetta file con:
+- MIME type: application/pdf
+- Estensione: .pdf (case insensitive)
+
+// Rifiuta altri file con messaggio errore
+```
+
+### UX Migliorata
+
+**Prima (v0.63)**:
+```
+[Input file] [Carica PDF]
+⬇️
+Click → Naviga → Seleziona → Apri → Carica
+```
+
+**Dopo (v0.64)**:
+```
+📄 Carica un file PDF per iniziare
+   oppure trascina un file qui
+⬇️
+Drag → Drop → Carica ✨
+```
+
+### Benefici
+- ✅ **UX Moderna**: Drag and drop è lo standard nelle applicazioni moderne
+- ✅ **Più Veloce**: Risparmia 3-4 click per utenti frequenti
+- ✅ **Feedback Immediato**: Indicazione visiva chiara durante il drag
+- ✅ **Sicuro**: Validazione tipo file prima dell'elaborazione
+- ✅ **Non Invasivo**: Metodo tradizionale rimane disponibile
+- ✅ **Cross-platform**: Funziona su Windows, Mac, Linux
+
+### File Modificati
+- `templates/unified.html` (righe 463-473, 763): Stili CSS e placeholder
+- `static/unified.js` (righe 130, 133-197): Drag and drop logic
+- `VERSION.txt`: Updated to 0.64
+- `CHANGELOG.md`: Documented drag and drop feature
+
+---
+
 ## v0.63 (2025-10-31)
 ### Estrazione Automatica Durante Navigazione Pagine
 Aggiunta estrazione automatica dei numeri con evidenziazione durante la navigazione tra pagine.

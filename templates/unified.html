@@ -460,6 +460,18 @@
             font-style: italic;
         }
 
+        /* Drag and Drop Styles */
+        .image-container.drag-over {
+            background-color: #e3f2fd;
+            border: 2px dashed #2196f3;
+            transition: all 0.3s ease;
+        }
+
+        .image-container.drag-over .placeholder {
+            color: #2196f3;
+            font-weight: bold;
+        }
+
         .loading {
             text-align: center;
             padding: 20px;
@@ -748,7 +760,7 @@
 
                 <!-- Image Container -->
                 <div class="image-container" id="imageContainer">
-                    <p class="placeholder">Carica un file PDF per iniziare</p>
+                    <p class="placeholder">📄 Carica un file PDF per iniziare<br><small style="font-size: 0.9em; color: #bbb;">oppure trascina un file qui</small></p>
                 </div>
             </div>
 

@@ -1699,11 +1699,46 @@ def upload_file():
                                     })
                                     print(f"Dimensioni estratte per pagina {page_num + 1}")
                                 except Exception as e:
-                                    print(f"Errore estrazione dimensioni pagina {page_num + 1}: {str(e)}")
-                                    results.append({
-                                        'page': page_num + 1,
-                                        'error': str(e)
-                                    })
+                                    error_msg = str(e).lower()
+                                    # Check if it's a safety/blocking error
+                                    if any(keyword in error_msg for keyword in ['safety', 'finish_reason', 'blocked', 'recitation']):
+                                        print(f"Safety error detected on page {page_num + 1} with {provider_name}, retrying with increased temperature...")
+                                        dimensions_text = None
+                                        # Progressive retry with increments: +0.1, +0.2, +0.3, +0.4, +0.5
+                                        for increment in [0.1, 0.2, 0.3, 0.4, 0.5]:
+                                            print(f"  Attempt page {page_num + 1} with temperature +{increment}...")
+                                            retry_result = retry_vision_with_increased_temperature(
+                                                current_provider,
+                                                default_dim_prompt['content'],
+                                                page_image_b64,
+                                                provider_name,
+                                                increment
+                                            )
+                                            if retry_result:
+                                                dimensions_text = retry_result
+                                                print(f"  [OK] Success on page {page_num + 1} with temperature +{increment}")
+                                                break
+
+                                        if dimensions_text:
+                                            # Retry succeeded
+                                            results.append({
+                                                'page': page_num + 1,
+                                                'dimensions': dimensions_text
+                                            })
+                                        else:
+                                            # All retries failed
+                                            print(f"  [FAILED] All retry attempts failed for page {page_num + 1}")
+                                            results.append({
+                                                'page': page_num + 1,
+                                                'error': str(e)
+                                            })
+                                    else:
+                                        # Not a safety error, just register it
+                                        print(f"Errore estrazione dimensioni pagina {page_num + 1}: {str(e)}")
+                                        results.append({
+                                            'page': page_num + 1,
+                                            'error': str(e)
+                                        })
 
                             dimensions_extraction = {
                                 'prompt_name': default_dim_prompt['name'],
@@ -2435,6 +2470,77 @@ def retry_with_increased_temperature(provider, prompt, text, provider_name, temp
 
     except Exception as e:
         print(f"Retry with temperature +{temp_increment} failed: {str(e)}")
+        return None
+
+
+def retry_vision_with_increased_temperature(provider, prompt, image_base64, provider_name, temp_increment=0.1):
+    """
+    Retry vision AI call with temporarily increased temperature without modifying saved values.
+
+    Args:
+        provider: AI provider instance
+        prompt: Prompt string
+        image_base64: Base64 encoded image
+        provider_name: Provider name string
+        temp_increment: Temperature increment (default 0.1)
+
+    Returns:
+        Response text or None if retry fails.
+    """
+    try:
+        # Determine provider type and call vision API with increased temperature
+        if 'gemini' in provider_name.lower():
+            # Gemini vision retry with temp increment
+            import google.generativeai as genai
+            import PIL.Image
+            import base64
+            import io
+
+            new_temp = min(0.0 + temp_increment, 1.0)  # Base 0.0, capped at 1.0
+            generation_config = genai.GenerationConfig(
+                temperature=new_temp,
+                top_p=0.1,
+                top_k=1,
+                max_output_tokens=8192,
+            )
+
+            # Decode base64 image
+            image_data = base64.b64decode(image_base64)
+            image = PIL.Image.open(io.BytesIO(image_data))
+
+            response = provider.client.generate_content(
+                [prompt, image],
+                generation_config=generation_config
+            )
+
+            # Handle safety blocks
+            if not response.candidates:
+                return None
+            candidate = response.candidates[0]
+            if candidate.finish_reason and candidate.finish_reason != 1:
+                return None
+            return response.text
+
+        elif 'claude' in provider_name.lower():
+            # Claude vision retry - use standard analyze_vision which has temperature
+            # Note: Claude uses temperature 1.0 by default in ai_providers.py
+            # Cannot override easily without modifying provider instance
+            return None  # Fallback to default behavior
+
+        elif 'gpt' in provider_name.lower() or 'openai' in provider_name.lower():
+            # OpenAI vision retry - use standard analyze_vision
+            return None  # Fallback to default behavior
+
+        elif 'novita' in provider_name.lower() or 'qwen' in provider_name.lower():
+            # Novita AI vision retry - use standard analyze_vision
+            return None  # Fallback to default behavior
+
+        else:
+            print(f"Unknown provider type for vision retry: {provider_name}")
+            return None
+
+    except Exception as e:
+        print(f"Vision retry with temperature +{temp_increment} failed: {str(e)}")
         return None
 
 

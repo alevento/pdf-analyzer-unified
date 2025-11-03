@@ -748,6 +748,13 @@
             margin-bottom: 15px;
         }
     </style>
+
+    <!-- PDF.js Library for client-side PDF processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
 </head>
 <body>
     <div class="container">
@@ -1147,7 +1154,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='unified.js') }}?v=0.72"></script>
+    <script src="{{ url_for('static', filename='unified.js') }}?v=0.73"></script>
     <script src="{{ url_for('static', filename='dimension_prompts.js') }}"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
-// Version: 0.72
-console.log('[Init] unified.js v0.72 loaded');
+// Version: 0.73
+console.log('[Init] unified.js v0.73 loaded');
 
 // Global state
 let currentZoom = 100;
@@ -286,32 +286,55 @@ function switchTab(tabName) {
 }
 
 async function uploadFile() {
+    console.log('==================== UPLOAD STARTED ====================');
     if (!fileInput.files || fileInput.files.length === 0) {
         status.textContent = 'Seleziona un file PDF';
         return;
     }
 
     const file = fileInput.files[0];
+    console.log('[Upload] File selected:', file.name);
     if (!file.name.toLowerCase().endsWith('.pdf')) {
         status.textContent = 'Errore: Il file deve essere un PDF';
         return;
     }
 
+    // Read PDF with PDF.js to get page count BEFORE upload
+    console.log('[Upload] Reading PDF with pdf.js to get page count...');
+    let pdfPageCount = null;
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({data: arrayBuffer});
+        const pdf = await loadingTask.promise;
+        pdfPageCount = pdf.numPages;
+        console.log('[Upload] PDF.js detected page count:', pdfPageCount);
+    } catch (error) {
+        console.error('[Upload] Error reading PDF with pdf.js:', error);
+        // Continue without page count - will fall back to server response
+    }
+
+    // Calculate estimated time NOW that we know page count
+    console.log('[Upload] >>> PRE-CALCULATING ESTIMATED TIME <<<');
+    const storedStats = localStorage.getItem('processingStats');
+    if (storedStats && pdfPageCount) {
+        const stats = JSON.parse(storedStats);
+        console.log('[Upload] Stats loaded:', stats);
+        if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
+            const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+            estimatedTime = (avgTimePerPage * pdfPageCount) / 1000; // Convert to seconds
+            console.log('[Upload] >>> PRE-CALCULATED estimatedTime:', estimatedTime.toFixed(1), 's for', pdfPageCount, 'pages');
+        }
+    } else {
+        console.log('[Upload] Cannot pre-calculate: storedStats=' + !!storedStats + ', pdfPageCount=' + pdfPageCount);
+        estimatedTime = null;
+    }
+
     // Start timing upload processing
     uploadStartTime = performance.now();
+    console.log('[Upload] Start time:', uploadStartTime);
 
     const formData = new FormData();
     formData.append('file', file);
-
-    // Calculate estimated time if we have stats
-    const storedStats = localStorage.getItem('processingStats');
-    if (storedStats) {
-        const stats = JSON.parse(storedStats);
-        if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
-            // We don't know page count yet, but we'll update this after the response
-            estimatedTime = null; // Will be set when we get page_count
-        }
-    }
 
     // Reset cache dimensioni e metodo estrazione per nuovo file
     currentExtractedDimensions = null;
@@ -324,7 +347,21 @@ async function uploadFile() {
     progressContainer.style.display = 'block';
     progressBar.style.width = '0%';
     timeElapsed.textContent = '0.0';
-    timeEstimated.textContent = '--';
+
+    // Set estimated time if calculated, otherwise show N/D or --
+    if (estimatedTime && estimatedTime > 0) {
+        timeEstimated.textContent = estimatedTime.toFixed(1);
+        console.log('[Upload] >>> DISPLAYING estimated time:', estimatedTime.toFixed(1), 's');
+    } else if (storedStats) {
+        // Have stats but no page count yet
+        timeEstimated.textContent = 'N/D';
+        timeEstimated.title = 'Calcolo in corso...';
+    } else {
+        // First document
+        timeEstimated.textContent = 'N/D';
+        timeEstimated.title = 'Prima importazione - tempo non disponibile';
+    }
+
     progressMessage.textContent = 'Preparazione...';
 
     // Crea loader con progressione animata
@@ -385,31 +422,40 @@ async function uploadFile() {
     textList.innerHTML = '<p class="placeholder">Attendi...</p>';
 
     try {
+        console.log('[Upload] Sending fetch request to /upload...');
         const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
+        console.log('[Upload] Response received, status:', response.status);
 
         // Ferma animazione progressione
         clearInterval(progressInterval);
 
         const data = await response.json();
+        console.log('[Upload] Response data:', {success: data.success, page_count: data.page_count});
 
         if (data.success) {
+            console.log('[Upload] SUCCESS - Processing response...');
             currentPageCount = data.page_count;
             currentPage = 0;
             currentPdfFile = file; // Store uploaded PDF file for unified prompt manager
 
             // Calculate estimated time now that we know page count
+            console.log('[Upload] >>> CALCULATING ESTIMATED TIME <<<');
             const storedStatsNow = localStorage.getItem('processingStats');
+            console.log('[Upload] storedStatsNow:', storedStatsNow);
             if (storedStatsNow) {
                 const stats = JSON.parse(storedStatsNow);
                 console.log(`[Stats] Loaded: ${stats.totalDocuments} documents, sum=${(stats.sumOfAvgTimesPerPage/1000).toFixed(2)}s`);
+                console.log('[Stats] Stats object:', stats);
                 // Calculate average time per page from accumulated document averages
                 if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
                     const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
                     estimatedTime = (avgTimePerPage * data.page_count) / 1000; // Convert to seconds
+                    console.log('[Stats] >>> SETTING timeEstimated.textContent to:', estimatedTime.toFixed(1));
                     timeEstimated.textContent = estimatedTime.toFixed(1);
+                    console.log('[Stats] >>> timeEstimated.textContent is now:', timeEstimated.textContent);
                     console.log(`[Stats] Estimated time: ${estimatedTime.toFixed(1)}s for ${data.page_count} pages (avg: ${(avgTimePerPage/1000).toFixed(2)}s/page)`);
                 } else {
                     console.log(`[Stats] No valid stats yet - first document or invalid data`);

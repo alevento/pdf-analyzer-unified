@@ -1,6 +1,99 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.73 (2025-11-03)
+### Tempo Stimato Visibile Durante Elaborazione
+Implementata lettura lato client del PDF per mostrare il tempo stimato PRIMA dell'elaborazione server.
+
+### Problema
+In v0.70-0.72, il tempo stimato veniva calcolato solo DOPO che il server aveva già elaborato il PDF:
+- ❌ Tempo stimato calcolato dopo ricezione risposta server (troppo tardi)
+- ❌ Durante elaborazione (1-5 minuti) l'utente vedeva solo "--"
+- ❌ Tempo stimato appariva per 1 secondo alla fine, quando ormai inutile
+- ❌ Nessun feedback su durata attesa durante upload
+
+**Problema di fondo:** Il server restituiva `page_count` solo dopo elaborazione completa, quindi impossibile calcolare stima prima.
+
+### Soluzione
+1. **PDF.js Client-Side**: Aggiunta libreria pdf.js per leggere PDF nel browser
+2. **Pre-lettura Page Count**: Prima di upload, legge PDF con pdf.js per ottenere numero pagine
+3. **Calcolo Anticipato**: Calcola tempo stimato PRIMA di mostrare barra progresso
+4. **Display Immediato**: Tempo stimato visibile da subito, non dopo elaborazione
+
+### Implementazione Tecnica
+
+**1. Aggiunta PDF.js (unified.html:752-757)**:
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+```
+
+**2. Lettura PDF Lato Client (unified.js:302-314)**:
+```javascript
+// Read PDF with PDF.js to get page count BEFORE upload
+const arrayBuffer = await file.arrayBuffer();
+const loadingTask = pdfjsLib.getDocument({data: arrayBuffer});
+const pdf = await loadingTask.promise;
+pdfPageCount = pdf.numPages;
+```
+
+**3. Calcolo Anticipato (unified.js:316-330)**:
+```javascript
+const storedStats = localStorage.getItem('processingStats');
+if (storedStats && pdfPageCount) {
+    const stats = JSON.parse(storedStats);
+    if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
+        const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+        estimatedTime = (avgTimePerPage * pdfPageCount) / 1000;
+        // estimatedTime ora disponibile PRIMA del fetch!
+    }
+}
+```
+
+**4. Display Immediato (unified.js:351-363)**:
+```javascript
+if (estimatedTime && estimatedTime > 0) {
+    timeEstimated.textContent = estimatedTime.toFixed(1);
+    // Visibile SUBITO quando appare la barra di progresso
+}
+```
+
+### Timeline Confronto
+
+**PRIMA (v0.72)**:
+```
+0s:    Click "Carica" → barra con "--"
+0-287s: Elaborazione server → utente vede "--"
+287s:  Risposta server → calcolo "266.7s" → mostrato per 0.5s → finito
+```
+
+**DOPO (v0.73)**:
+```
+0s:    Click "Carica"
+0-2s:  PDF.js legge PDF → calcola "266.7s"
+2s:    Barra appare con "266.7s" VISIBILE
+2-289s: Elaborazione server → utente vede "266.7s" per tutto il tempo
+289s:  Fine
+```
+
+### Benefici
+- ✅ **Feedback Immediato**: Tempo stimato visibile entro 2 secondi dal click
+- ✅ **Visibilità Durante Elaborazione**: Rimane visibile per tutta la durata (1-5 minuti)
+- ✅ **UX Migliorata**: Utente sa quanto aspettare prima di iniziare
+- ✅ **Nessuna Richiesta Extra**: PDF letto localmente, zero overhead server
+- ✅ **Fallback Robusto**: Se pdf.js fallisce, torna al comportamento precedente
+- ✅ **Progressione Accurata**: Barra progresso usa stima per calcolare avanzamento
+
+### Note Tecniche
+- PDF.js caricato da CDN CloudFlare (v3.11.174)
+- Lettura PDF asincrona (2-3 secondi per PDF grandi)
+- Worker separato per non bloccare UI
+- Compatibile con tutti i browser moderni
+- Gestione errori robusta con fallback
+
+
 ## v0.72 (2025-11-03)
 ### Cache Busting per JavaScript
 Implementato sistema di versioning per forzare aggiornamento della cache del browser.

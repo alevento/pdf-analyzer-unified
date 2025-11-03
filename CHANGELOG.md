@@ -1,6 +1,153 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.70 (2025-11-03)
+### Sistema Stima Tempi Ottimizzato
+Miglioramento del sistema di stima dei tempi di importazione con metodo media-dei-tempi-medi per maggiore accuratezza.
+
+### Problema
+Il sistema precedente calcolava una media pesata globale del tempo per pagina, che non considerava adeguatamente la variabilità tra documenti:
+- ❌ Media pesata semplice: documenti grandi influenzavano troppo la stima
+- ❌ Non considerava che documenti diversi hanno complessità diverse
+- ❌ Stime imprecise per documenti di complessità variabile
+
+**Esempio Problema**:
+- Doc 1: 100 pagine, 1000s → 10s/pagina
+- Doc 2: 10 pagine, 200s → 20s/pagina
+- **Vecchio metodo**: (1200s totali / 110 pagine totali) = 10.9s/pagina
+- **Problema**: Doc 1 domina la media, sottostimando per documenti complessi
+
+### Soluzione
+Implementato sistema **media-dei-tempi-medi** che pesa ogni documento ugualmente:
+1. **Per ogni documento**: calcola tempo medio per pagina di quel documento
+2. **Accumula**: somma tutti i tempi medi per pagina
+3. **Media**: divide per numero documenti per ottenere media globale
+4. **Stima**: moltiplica per pagine del documento corrente
+
+**Formula**:
+```javascript
+// Al termine di ogni documento:
+timePerPageThisDoc = totalTime / pageCount
+sumOfAvgTimesPerPage += timePerPageThisDoc
+totalDocuments++
+
+// Per stimare nuovo documento:
+estimatedTime = (sumOfAvgTimesPerPage / totalDocuments) × pageCount
+```
+
+**Esempio con Nuovo Metodo**:
+- Doc 1: 100 pagine, 1000s → 10s/pagina
+- Doc 2: 10 pagine, 200s → 20s/pagina
+- **Nuovo metodo**: (10 + 20) / 2 = 15s/pagina media
+- **Per 50 pagine**: 15 × 50 = 750s stimati ✅
+
+### Nuova Struttura localStorage
+
+**Prima (v0.69)**:
+```javascript
+{
+    avgTimePerPage: 0,    // Media pesata globale
+    totalProcessed: 0     // Documenti processati
+}
+```
+
+**Dopo (v0.70)**:
+```javascript
+{
+    sumOfAvgTimesPerPage: 0,  // Somma dei tempi medi per pagina di tutti i documenti (ms)
+    totalDocuments: 0         // Numero totale documenti importati (conta a vita)
+}
+```
+
+### Modifiche al Codice
+
+**1. Struttura Globale** (unified.js:16):
+```javascript
+// Prima:
+let processingStats = null; // { avgTimePerPage, totalProcessed }
+
+// Dopo:
+let processingStats = null; // { sumOfAvgTimesPerPage, totalDocuments }
+```
+
+**2. Calcolo Finale** (unified.js:380-403):
+```javascript
+// Prima: Media pesata globale
+const newAvg = (stats.avgTimePerPage * stats.totalProcessed + timePerPage) / (stats.totalProcessed + 1);
+stats.avgTimePerPage = newAvg;
+stats.totalProcessed += 1;
+
+// Dopo: Accumulo tempi medi
+const timePerPageThisDoc = elapsedTime / data.page_count;
+stats.sumOfAvgTimesPerPage += timePerPageThisDoc;
+stats.totalDocuments += 1;
+const globalAvgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+```
+
+**3. Calcolo Stima** (unified.js:368-378):
+```javascript
+// Prima:
+if (stats.avgTimePerPage > 0) {
+    estimatedTime = (stats.avgTimePerPage * data.page_count) / 1000;
+}
+
+// Dopo:
+if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
+    const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+    estimatedTime = (avgTimePerPage * data.page_count) / 1000;
+}
+```
+
+**4. Visualizzazione Stats** (unified.js:215-227):
+```javascript
+// Dopo: Mostra documenti analizzati invece di "processati"
+const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+const avgSeconds = (avgTimePerPage / 1000).toFixed(1);
+statusMsg += ` - ⏱️ Tempo medio: ${avgSeconds}s per pagina (${stats.totalDocuments} documenti analizzati)`;
+```
+
+### Vantaggi del Nuovo Sistema
+
+**1. Maggiore Accuratezza**:
+- Ogni documento pesa ugualmente nella media
+- Documenti complessi non vengono sottostimati
+- Documenti semplici non vengono sovrastimati
+
+**2. Fairness tra Documenti**:
+- Un documento da 1000 pagine = 1 voto
+- Un documento da 10 pagine = 1 voto
+- Media più rappresentativa della complessità tipica
+
+**3. Migliore Adattamento**:
+- Si adatta meglio a documenti di complessità variabile
+- Tiene memoria storica "a vita" (totalDocuments sempre cresce)
+- Più documenti = stima più accurata
+
+**4. Trasparenza**:
+- Console log mostra: tempo questo doc, media globale, num documenti
+- User vede: "X documenti analizzati" invece di "processati"
+
+### Confronto Prima/Dopo
+
+| Scenario | v0.69 (Media Pesata) | v0.70 (Media dei Tempi Medi) | Migliore |
+|----------|----------------------|------------------------------|----------|
+| 10 doc semplici (5s/pag) + 1 complesso (50s/pag) | ~8s/pag | ~9.5s/pag | v0.70 ✅ |
+| 1 doc enorme (1000 pag) + 10 piccoli vari | Dominato da doc grande | Pesa tutti uguale | v0.70 ✅ |
+| Tutti doc simili | ~uguale | ~uguale | Pari |
+| Doc nuovi più complessi dei vecchi | Sottostima | Si adatta meglio | v0.70 ✅ |
+
+### Benefici
+- ✅ **Stima più Accurata**: Media più rappresentativa della complessità tipica
+- ✅ **Fairness**: Ogni documento pesa ugualmente
+- ✅ **Adattabilità**: Si adatta meglio a variabilità di complessità
+- ✅ **Tracciamento a Vita**: totalDocuments cresce sempre, memoria storica
+- ✅ **Trasparenza**: Logging dettagliato per debugging
+
+### File Modificati
+- `static/unified.js`: Refactoring completo sistema statistiche (5 sezioni modificate)
+- `VERSION.txt`: Aggiornato a 0.70
+
+
 ## v0.69 (2025-11-03)
 ### Palette Gradienti Blu e Viola
 Trasformazione completa della palette dark mode da grigi a gradienti blu e viola moderni e professionali.

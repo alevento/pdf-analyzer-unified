@@ -13,7 +13,7 @@ let currentProviderName = null; // Store provider name used for dimensions extra
 let currentExtractionMethod = null; // Store extraction method used for auto-extraction ('pdfplumber', 'ocr', or 'none')
 let currentMinConfidence = 60; // Store confidence threshold for OCR extraction
 let uploadStartTime = null; // Track upload processing start time
-let processingStats = null; // Store processing statistics: { avgTimePerPage, totalProcessed }
+let processingStats = null; // Store processing statistics: { sumOfAvgTimesPerPage, totalDocuments }
 let progressTimerInterval = null; // Interval for updating progress timer
 let estimatedTime = null; // Estimated total time based on page count
 
@@ -218,9 +218,11 @@ function handleFileSelect() {
 
         if (storedStats) {
             const stats = JSON.parse(storedStats);
-            if (stats.avgTimePerPage > 0 && stats.totalProcessed > 0) {
-                const avgSeconds = (stats.avgTimePerPage / 1000).toFixed(1);
-                statusMsg += ` - ⏱️ Tempo medio: ${avgSeconds}s per pagina (${stats.totalProcessed} documenti)`;
+            // Calculate average time per page from accumulated document averages
+            if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
+                const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+                const avgSeconds = (avgTimePerPage / 1000).toFixed(1);
+                statusMsg += ` - ⏱️ Tempo medio: ${avgSeconds}s per pagina (${stats.totalDocuments} documenti analizzati)`;
             }
         }
 
@@ -270,7 +272,7 @@ async function uploadFile() {
     const storedStats = localStorage.getItem('processingStats');
     if (storedStats) {
         const stats = JSON.parse(storedStats);
-        if (stats.avgTimePerPage > 0) {
+        if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
             // We don't know page count yet, but we'll update this after the response
             estimatedTime = null; // Will be set when we get page_count
         }
@@ -367,8 +369,10 @@ async function uploadFile() {
             const storedStatsNow = localStorage.getItem('processingStats');
             if (storedStatsNow) {
                 const stats = JSON.parse(storedStatsNow);
-                if (stats.avgTimePerPage > 0) {
-                    estimatedTime = (stats.avgTimePerPage * data.page_count) / 1000; // Convert to seconds
+                // Calculate average time per page from accumulated document averages
+                if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
+                    const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
+                    estimatedTime = (avgTimePerPage * data.page_count) / 1000; // Convert to seconds
                     timeEstimated.textContent = estimatedTime.toFixed(1);
                 }
             }
@@ -376,24 +380,26 @@ async function uploadFile() {
             // Calculate processing time and update statistics
             if (uploadStartTime) {
                 const elapsedTime = performance.now() - uploadStartTime;
-                const timePerPage = elapsedTime / data.page_count;
+                const timePerPageThisDoc = elapsedTime / data.page_count; // Tempo medio per pagina di QUESTO documento
 
                 // Load previous stats from localStorage
                 const storedStats = localStorage.getItem('processingStats');
-                let stats = storedStats ? JSON.parse(storedStats) : { avgTimePerPage: 0, totalProcessed: 0 };
+                let stats = storedStats ? JSON.parse(storedStats) : { sumOfAvgTimesPerPage: 0, totalDocuments: 0 };
 
-                // Update rolling average: newAvg = (oldAvg * count + newTime) / (count + 1)
-                const newAvg = (stats.avgTimePerPage * stats.totalProcessed + timePerPage) / (stats.totalProcessed + 1);
-                stats.avgTimePerPage = newAvg;
-                stats.totalProcessed += 1;
+                // Accumulate the average time per page of this document
+                stats.sumOfAvgTimesPerPage += timePerPageThisDoc;
+                stats.totalDocuments += 1;
+
+                // Calculate global average for logging
+                const globalAvgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
 
                 // Save updated stats
                 localStorage.setItem('processingStats', JSON.stringify(stats));
                 processingStats = stats;
 
                 console.log(`[Performance] Processing time: ${(elapsedTime / 1000).toFixed(2)}s for ${data.page_count} pages`);
-                console.log(`[Performance] Time per page: ${(timePerPage / 1000).toFixed(2)}s`);
-                console.log(`[Performance] Average time per page: ${(stats.avgTimePerPage / 1000).toFixed(2)}s (based on ${stats.totalProcessed} documents)`);
+                console.log(`[Performance] Time per page (this doc): ${(timePerPageThisDoc / 1000).toFixed(2)}s`);
+                console.log(`[Performance] Global average time per page: ${(globalAvgTimePerPage / 1000).toFixed(2)}s (based on ${stats.totalDocuments} documents)`);
             }
 
             // Update PDF type badge

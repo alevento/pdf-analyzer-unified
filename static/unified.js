@@ -1,3 +1,6 @@
+// Version: 0.72
+console.log('[Init] unified.js v0.72 loaded');
+
 // Global state
 let currentZoom = 100;
 let currentHighlightedNumbers = [];

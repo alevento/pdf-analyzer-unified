@@ -1,6 +1,42 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.72 (2025-11-03)
+### Cache Busting per JavaScript
+Implementato sistema di versioning per forzare aggiornamento della cache del browser.
+
+### Problema
+Dopo il rilascio di v0.71 con migrazione automatica stats, alcuni utenti continuavano a vedere la versione cached di unified.js:
+- ❌ Browser serviva file JS dalla cache (HTTP 304 Not Modified)
+- ❌ Hard refresh (Ctrl+Shift+R) non sempre efficace
+- ❌ Log `[Migration]` non comparivano in console
+- ❌ Impossibile verificare quale versione di JS era caricata
+
+### Soluzione
+1. **Version Stamp**: Aggiunto log di versione all'inizio di unified.js:
+   ```javascript
+   // Version: 0.72
+   console.log('[Init] unified.js v0.72 loaded');
+   ```
+
+2. **Query Parameter Cache Busting**: Modificato tag script in HTML:
+   ```html
+   <script src="{{ url_for('static', filename='unified.js') }}?v=0.72"></script>
+   ```
+
+### Benefici
+- ✅ **Aggiornamento Forzato**: Query parameter diverso forza download nuovo file
+- ✅ **Visibilità Versione**: Log immediato mostra quale versione è caricata
+- ✅ **Debug Facilitato**: Console mostra subito se c'è problema di cache
+- ✅ **Compatibilità**: Query parameter ignorato dal server, file servito normalmente
+
+### Note per Futuri Aggiornamenti
+Ad ogni modifica di `unified.js`, ricordarsi di:
+1. Aggiornare numero versione nel commento iniziale
+2. Aggiornare query parameter in `unified.html`
+3. Incrementare VERSION.txt
+
+
 ## v0.71 (2025-11-03)
 ### Fix Visualizzazione Tempo Stimato + Migrazione Stats
 Risolti problemi con visualizzazione tempo stimato e aggiunta migrazione automatica formato statistiche.

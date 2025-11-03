@@ -1,6 +1,54 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.68 (2025-10-31)
+### Dark Mode Completo + Font Aumentati
+Completamento trasformazione dark mode per TUTTI gli elementi inline e aumento generalizzato font +2px per migliore leggibilità.
+
+### Problema
+Dopo v0.67, rimanevano elementi non convertiti:
+- ❌ Elementi inline con colori light mode
+- ❌ Riquadri risultati con background chiari
+- ❌ Font troppo piccoli per leggibilità ottimale
+
+### Soluzione
+1. **Conversione Elementi Inline Completa**: Tutti gli stili inline convertiti in dark
+2. **Aumento Font Generalizzato**: +2px su tutti i font-size
+3. **Riquadri Risultati Dark**: Template section, progress, prompt manager
+
+### Aumento Font (+2px Generale)
+
+| Elemento | Prima | Dopo | Δ |
+|----------|-------|------|---|
+| H1 | 26px | 28px | +2 |
+| H2 | 20px | 22px | +2 |
+| Buttons | 16px | 18px | +2 |
+| Labels | 16px | 18px | +2 |
+| Inputs | 16px | 18px | +2 |
+| Text content | 18px | 20px | +2 |
+| Badges | 15px | 17px | +2 |
+| AI pre | 15px | 17px | +2 |
+
+### Elementi Inline Convertiti
+
+**AI Controls**: opusStatus, aiProviderSelect → dark backgrounds
+**Template Section**: #1a1d29 background, tutti i testi #e0e0e0
+**Download Buttons**: font-size aumentato a 16px
+**Extraction Methods**: labels dark con font 15px
+**Progress Container**: background #1a1d29, testi #e0e0e0
+**Prompt Manager**: background #1a1d29, labels #e0e0e0
+
+### Benefici
+- ✅ **100% Dark Mode**: Nessun elemento light rimasto
+- ✅ **Leggibilità migliorata**: Font +2px ovunque
+- ✅ **Coerenza visiva**: Tutti elementi consistenti
+- ✅ **Accessibilità**: Font adeguati per vista ridotta
+
+### File Modificati
+- `templates/unified.html`: Conversione completa elementi inline + aumento font
+- `VERSION.txt`: Aggiornato a 0.68
+
+
 ## v0.67 (2025-10-31)
 ### Dark Mode - Interfaccia Scura Moderna e Professionale
 Trasformazione completa dell'interfaccia in dark mode con palette di colori moderna e ottimizzata per ridurre l'affaticamento visivo.

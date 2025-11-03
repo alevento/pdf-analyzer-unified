@@ -1,6 +1,101 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.69 (2025-11-03)
+### Palette Gradienti Blu e Viola
+Trasformazione completa della palette dark mode da grigi a gradienti blu e viola moderni e professionali.
+
+### Problema
+Dopo v0.68, l'interfaccia aveva una palette grigia che mancava di personalità e appeal visivo:
+- ❌ Colori grigi poco distintivi (#0f1419, #1a1d29, #2d3142)
+- ❌ Mancanza di identità visiva con i gradienti
+- ❌ Esperienza utente poco coinvolgente
+
+### Soluzione
+1. **Nuova Palette Blu/Viola**: Design system con gradienti blu e viola
+2. **Aggiornamento Completo CSS**: Tutti i colori sostituiti sistematicamente
+3. **Gradienti Migliorati**: Button, tab, header con gradienti accattivanti
+
+### Nuova Palette Colori
+
+**Backgrounds (Dark → Light)**:
+- Ultra Dark: `#0a0e27` (molto scuro blu-viola, prima #0f1419)
+- Dark Panels: `#151b3e` (blu-viola scuro, prima #1a1d29)
+- Medium: `#1e2847` (blu medio, prima #1e2129)
+- Sections: `#2a3356` (blu-grigio, prima #2d3142)
+- Borders: `#3d4a70` (blu-grigio chiaro, prima #3d4152)
+
+**Gradienti**:
+- Header: `linear-gradient(135deg, #1e2847 → #3d4a70)`
+- Progress: `linear-gradient(135deg, #5b6fd8 → #a86fff)` (blu a viola)
+- Buttons: `linear-gradient(135deg, #5b8fff → #a86fff)` (blu brillante a viola)
+- Tabs Active: `linear-gradient(135deg, #5b8fff → #a86fff)`
+- Version Badge: `linear-gradient(135deg, #5b8fff → #a86fff)`
+
+**Accenti**:
+- Primary Blue: `#5b8fff` (blu brillante, prima #4a9eff)
+- Primary Violet: `#a86fff` (viola brillante, nuovo)
+- Text Primary: `#e8ecf8` (bianco-blu molto chiaro, prima #e0e0e0)
+- Text Secondary: `#b4bdd4` (blu-grigio chiaro, prima #a8b2c1)
+
+### Elementi CSS Aggiornati
+
+**1. Backgrounds & Structure**:
+- Body: `#0a0e27` con testo `#e8ecf8`
+- Header: Gradiente blu `#1e2847 → #3d4a70`
+- Panels: `#151b3e` con ombre blu
+- Sections: `#0a0e27` e `#2a3356`
+- Inputs: `#1e2847` con bordi `#3d4a70`
+
+**2. Interactive Elements**:
+- Buttons: Gradiente `#5b8fff → #a86fff` con hover effects
+- Tabs: Gradiente attivo con bordi viola
+- Zoom buttons: Gradienti interattivi
+- Scrollbars: Gradiente hover blu-viola
+
+**3. Components**:
+- Progress Indicator: Gradiente `#5b6fd8 → #a86fff`
+- AI Results: Backgrounds `#151b3e` con bordi viola
+- Text Items: `#2a3356` con hover blu
+- Badges & Counters: Backgrounds `#3d4a70`
+
+**4. Typography**:
+- H2 borders: Gradiente lineare `#5b8fff → #a86fff`
+- Selezionatore testo: Accent `#5b8fff`
+- Loading states: Color `#5b8fff`
+
+**5. Inline Styles**:
+- AI Controls: Backgrounds e testi aggiornati
+- Template Section: Bordo `#5b8fff`
+- Progress Containers: Gradienti blu-viola
+- Prompt Manager: Backgrounds `#151b3e`
+- Tutti i labels: `#e8ecf8`
+- Tutti i hints: `#b4bdd4`
+
+### Prima/Dopo Comparazione
+
+| Elemento | v0.68 (Grigio) | v0.69 (Blu/Viola) | Effetto |
+|----------|----------------|-------------------|---------|
+| Body BG | #0f1419 | #0a0e27 | Blu profondo |
+| Panels | #1a1d29 | #151b3e | Blu intenso |
+| Header | Linear #1a1d29→#2d3142 | Linear #1e2847→#3d4a70 | Gradiente blu |
+| Buttons | #3498db | Linear #5b8fff→#a86fff | Gradiente moderno |
+| Accents | #4a9eff | #5b8fff + #a86fff | Blu & viola |
+| Text | #e0e0e0 | #e8ecf8 | Bianco-blu |
+| Progress | #667eea→#764ba2 | #5b6fd8→#a86fff | Gradiente migliorato |
+
+### Benefici
+- ✅ **Identità Visiva Forte**: Palette distintiva blu-viola
+- ✅ **Design Moderno**: Gradienti accattivanti e professionali
+- ✅ **Contrasto Ottimale**: Mantenuta leggibilità WCAG compliant
+- ✅ **Coerenza Totale**: Palette consistente in tutta l'app
+- ✅ **Esperienza Migliorata**: Interfaccia più coinvolgente
+
+### File Modificati
+- `templates/unified.html`: Conversione completa palette colori (100+ modifiche)
+- `VERSION.txt`: Aggiornato a 0.69
+
+
 ## v0.68 (2025-10-31)
 ### Dark Mode Completo + Font Aumentati
 Completamento trasformazione dark mode per TUTTI gli elementi inline e aumento generalizzato font +2px per migliore leggibilità.

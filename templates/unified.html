@@ -13,8 +13,8 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f1419;
-            color: #e0e0e0;
+            background-color: #0a0e27;
+            color: #e8ecf8;
         }
 
         .container {
@@ -24,13 +24,13 @@
         }
 
         header {
-            background: linear-gradient(135deg, #1a1d29 0%, #2d3142 100%);
+            background: linear-gradient(135deg, #1e2847 0%, #3d4a70 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-            border: 1px solid #2d3142;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #3d4a70;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .header-top {
@@ -46,13 +46,13 @@
         }
 
         .version-badge {
-            background-color: #3498db;
+            background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%);
             color: white;
             padding: 4px 12px;
             border-radius: 12px;
             font-size: 17px;
             font-weight: bold;
-            border: 2px solid #2980b9;
+            border: 2px solid #a86fff;
         }
 
         .pdf-type-badge {
@@ -91,26 +91,28 @@
         #fileInput {
             flex: 1;
             padding: 8px;
-            border: 1px solid #3d4152;
+            border: 1px solid #3d4a70;
             border-radius: 4px;
-            background-color: #1e2129;
-            color: #e0e0e0;
+            background-color: #1e2847;
+            color: #e8ecf8;
         }
 
         .btn {
             padding: 10px 20px;
-            background-color: #3498db;
+            background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%);
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 18px;
             font-weight: bold;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
         }
 
         .btn:hover {
-            background-color: #2980b9;
+            background: linear-gradient(135deg, #4a7ddb 0%, #9755e8 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(91, 143, 255, 0.4);
         }
 
         .btn:disabled {
@@ -137,8 +139,8 @@
         }
 
         .confidence-control {
-            background-color: #2d3142;
-            border: 1px solid #3d4152;
+            background-color: #2a3356;
+            border: 1px solid #3d4a70;
         }
 
         .confidence-control label {
@@ -150,12 +152,12 @@
         .confidence-control input[type="number"] {
             width: 60px;
             padding: 4px 8px;
-            border: 1px solid #3d4152;
+            border: 1px solid #3d4a70;
             border-radius: 4px;
             font-size: 18px;
             text-align: center;
-            background-color: #1e2129;
-            color: #e0e0e0;
+            background-color: #1e2847;
+            color: #e8ecf8;
         }
 
         #status {
@@ -164,8 +166,8 @@
         }
 
         .selected-text-box {
-            background-color: #1a1d29;
-            border: 2px solid #3d4152;
+            background-color: #151b3e;
+            border: 2px solid #3d4a70;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
@@ -173,11 +175,11 @@
         }
 
         .selected-text-box strong {
-            color: #a8b2c1;
+            color: #b4bdd4;
         }
 
         #selectedText {
-            color: #4a9eff;
+            color: #5b8fff;
             font-size: 22px;
             font-weight: bold;
             margin-left: 10px;
@@ -191,11 +193,11 @@
         }
 
         .left-panel, .right-panel {
-            background-color: #1a1d29;
+            background-color: #151b3e;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            border: 1px solid #2d3142;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+            border: 1px solid #3d4a70;
             min-width: 0;
             overflow: hidden;
         }
@@ -206,9 +208,10 @@
 
         .left-panel h2, .right-panel h2 {
             margin-bottom: 15px;
-            color: #e0e0e0;
+            color: #e8ecf8;
             font-size: 22px;
-            border-bottom: 2px solid #4a9eff;
+            border-bottom: 2px solid;
+            border-image: linear-gradient(90deg, #5b8fff, #a86fff) 1;
             padding-bottom: 10px;
         }
 
@@ -221,9 +224,9 @@
 
         .tab-btn {
             padding: 8px 16px;
-            background-color: #2d3142;
-            color: #a8b2c1;
-            border: 2px solid #3d4152;
+            background-color: #2a3356;
+            color: #b4bdd4;
+            border: 2px solid #3d4a70;
             border-radius: 4px;
             cursor: pointer;
             font-size: 17px;
@@ -231,23 +234,23 @@
         }
 
         .tab-btn:hover {
-            background-color: #3d4152;
-            color: #e0e0e0;
+            background-color: #3d4a70;
+            color: #e8ecf8;
         }
 
         .tab-btn.active {
-            background-color: #4a9eff;
+            background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%);
             color: white;
-            border-color: #3d8bfd;
+            border-color: #a86fff;
         }
 
         .control-section {
             display: none;
             padding: 15px;
-            background-color: #0f1419;
+            background-color: #0a0e27;
             border-radius: 6px;
             margin-bottom: 15px;
-            border: 1px solid #2d3142;
+            border: 1px solid #2a3356;
         }
 
         .control-section.active {
@@ -267,18 +270,18 @@
             margin-bottom: 5px;
             font-weight: 500;
             font-size: 18px;
-            color: #a8b2c1;
+            color: #b4bdd4;
         }
 
         .control-group select,
         .control-group input[type="number"] {
             width: 100%;
             padding: 8px 12px;
-            border: 1px solid #3d4152;
+            border: 1px solid #3d4a70;
             border-radius: 4px;
             font-size: 18px;
-            background-color: #1e2129;
-            color: #e0e0e0;
+            background-color: #1e2847;
+            color: #e8ecf8;
         }
 
         .button-group {
@@ -297,22 +300,23 @@
 
         .zoom-btn {
             padding: 8px 16px;
-            background-color: #3498db;
+            background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%);
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 18px;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
         }
 
         .zoom-btn:hover {
-            background-color: #2980b9;
+            background: linear-gradient(135deg, #4a7ddb 0%, #9755e8 100%);
+            transform: translateY(-1px);
         }
 
         .zoom-level {
             font-size: 18px;
-            color: #e0e0e0;
+            color: #e8ecf8;
             font-weight: bold;
             min-width: 60px;
             text-align: center;
@@ -321,12 +325,12 @@
         .image-container {
             width: 100%;
             overflow: auto;
-            border: 1px solid #3d4152;
+            border: 1px solid #3d4a70;
             border-radius: 4px;
             min-height: 500px;
             max-height: 700px;
             position: relative;
-            background-color: #0f1419;
+            background-color: #0a0e27;
         }
 
         .image-container img {
@@ -366,8 +370,8 @@
         .text-item {
             padding: 12px;
             margin-bottom: 8px;
-            background-color: #2d3142;
-            border: 2px solid #3d4152;
+            background-color: #2a3356;
+            border: 2px solid #3d4a70;
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
@@ -378,8 +382,8 @@
         }
 
         .text-item:hover {
-            background-color: #3d4152;
-            border-color: #4a9eff;
+            background-color: #3d4a70;
+            border-color: #5b8fff;
             border-width: 3px;
             transform: translateX(5px);
         }
@@ -406,7 +410,7 @@
 
         .text-content {
             font-weight: bold;
-            color: #e0e0e0;
+            color: #e8ecf8;
             font-size: 20px;
             word-break: break-word;
             overflow-wrap: break-word;
@@ -422,16 +426,16 @@
         .text-count {
             font-size: 17px;
             font-weight: bold;
-            color: #e0e0e0;
-            background-color: #3d4152;
+            color: #e8ecf8;
+            background-color: #3d4a70;
             padding: 2px 8px;
             border-radius: 12px;
         }
 
         .text-confidence {
             font-size: 16px;
-            color: #a8b2c1;
-            background-color: #2d3142;
+            color: #b4bdd4;
+            background-color: #2a3356;
             padding: 2px 8px;
             border-radius: 12px;
         }
@@ -477,23 +481,23 @@
 
         /* Drag and Drop Styles */
         .image-container.drag-over {
-            background-color: #1e2a3a;
-            border: 2px dashed #4a9eff;
+            background-color: #1e2847;
+            border: 2px dashed #5b8fff;
             transition: all 0.3s ease;
         }
 
         .image-container.drag-over .placeholder {
-            color: #4a9eff;
+            color: #5b8fff;
             font-weight: bold;
         }
 
         /* Modern Progress Indicator */
         .progress-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #5b6fd8 0%, #a86fff 100%);
             border-radius: 12px;
             padding: 20px;
             margin-top: 15px;
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 32px rgba(91, 111, 216, 0.4);
             animation: slideDown 0.4s ease-out;
         }
 
@@ -628,16 +632,16 @@
         .loading {
             text-align: center;
             padding: 20px;
-            color: #4a9eff;
+            color: #5b8fff;
         }
 
         .number-count {
-            background-color: #2d3142;
+            background-color: #2a3356;
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 4px;
             font-size: 17px;
-            color: #e0e0e0;
+            color: #e8ecf8;
         }
 
         .legend {
@@ -645,11 +649,11 @@
             gap: 15px;
             justify-content: center;
             padding: 10px;
-            background-color: #2d3142;
+            background-color: #2a3356;
             border-radius: 4px;
             margin-bottom: 10px;
             font-size: 16px;
-            color: #e0e0e0;
+            color: #e8ecf8;
         }
 
         .legend-item {
@@ -673,53 +677,53 @@
             border-color: #FF00FF;
         }
 
-        /* Scrollbar personalizzata - Dark Mode */
+        /* Scrollbar personalizzata - Blue/Violet Dark Mode */
         .text-list::-webkit-scrollbar, .image-container::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
 
         .text-list::-webkit-scrollbar-track, .image-container::-webkit-scrollbar-track {
-            background: #1a1d29;
+            background: #151b3e;
             border-radius: 4px;
         }
 
         .text-list::-webkit-scrollbar-thumb, .image-container::-webkit-scrollbar-thumb {
-            background: #3d4152;
+            background: #3d4a70;
             border-radius: 4px;
         }
 
         .text-list::-webkit-scrollbar-thumb:hover, .image-container::-webkit-scrollbar-thumb:hover {
-            background: #4a9eff;
+            background: linear-gradient(135deg, #5b8fff, #a86fff);
         }
 
-        /* AI Results Styling - Dark Mode */
+        /* AI Results Styling - Blue/Violet Dark Mode */
         .ai-result {
-            background-color: #1a1d29;
-            border: 2px solid #9b59b6;
+            background-color: #151b3e;
+            border: 2px solid #a86fff;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
         }
 
         .ai-result h3 {
-            color: #c794ff;
+            color: #a86fff;
             margin-bottom: 10px;
             font-size: 20px;
-            border-bottom: 2px solid #9b59b6;
+            border-bottom: 2px solid #a86fff;
             padding-bottom: 5px;
         }
 
         .ai-result-item {
-            background-color: #0f1419;
+            background-color: #0a0e27;
             padding: 10px;
             margin: 5px 0;
             border-radius: 4px;
-            border-left: 4px solid #9b59b6;
+            border-left: 4px solid #a86fff;
         }
 
         .ai-result pre {
-            background-color: #1a1d29;
+            background-color: #151b3e;
             color: #ecf0f1;
             padding: 10px;
             border-radius: 4px;
@@ -731,7 +735,7 @@
         .ai-loading {
             text-align: center;
             padding: 20px;
-            color: #c794ff;
+            color: #a86fff;
             font-style: italic;
         }
 
@@ -796,7 +800,7 @@
                     <button class="tab-btn active" data-tab="numbers">Estrazione Numeri Avanzata</button>
                     <button class="tab-btn" data-tab="pdfplumber">PDFPlumber</button>
                     <button class="tab-btn" data-tab="ocr">OCR Standard</button>
-                    <button class="tab-btn" data-tab="ai" style="background-color: #9b59b6; color: white;">AI Analysis</button>
+                    <button class="tab-btn" data-tab="ai" style="background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%); color: white; border-color: #a86fff;">AI Analysis</button>
                 </div>
 
                 <!-- Numbers Extraction Controls -->
@@ -855,15 +859,15 @@
                 <!-- AI Analysis Controls -->
                 <div id="ai-controls" class="control-section">
                     <div class="control-group">
-                        <div id="opusStatus" style="padding: 10px; background-color: #2d3142; border-radius: 4px; margin-bottom: 10px; text-align: center; font-size: 17px; color: #e0e0e0;">
+                        <div id="opusStatus" style="padding: 10px; background-color: #2a3356; border-radius: 4px; margin-bottom: 10px; text-align: center; font-size: 17px; color: #e8ecf8;">
                             Verifica stato...
                         </div>
                     </div>
                     <!-- AI Provider Selector -->
                     <div class="control-group" style="margin-bottom: 10px;">
-                        <label for="aiProviderSelect" style="font-size: 16px; color: #a8b2c1; margin-bottom: 4px;">Provider AI:</label>
+                        <label for="aiProviderSelect" style="font-size: 16px; color: #b4bdd4; margin-bottom: 4px;">Provider AI:</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <select id="aiProviderSelect" style="flex: 1; padding: 6px; font-size: 17px; border: 1px solid #3d4152; border-radius: 4px; background-color: #1e2129; color: #e0e0e0;" onchange="switchAIProvider()">
+                            <select id="aiProviderSelect" style="flex: 1; padding: 6px; font-size: 17px; border: 1px solid #3d4a70; border-radius: 4px; background-color: #1e2847; color: #e8ecf8;" onchange="switchAIProvider()">
                                 <option value="">Caricamento...</option>
                             </select>
                             <button id="setPreferredProviderBtn" class="btn" onclick="togglePreferredProvider()"
@@ -874,7 +878,7 @@
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button class="btn" id="analyzeBtn" style="background-color: #9b59b6; width: 100%;" disabled>
+                        <button class="btn" id="analyzeBtn" style="background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%); width: 100%;" disabled>
                             1. Analizza Dati
                         </button>
                         <button class="btn" id="visionBtn" style="background-color: #e74c3c; width: 100%;" disabled>
@@ -886,8 +890,8 @@
                     </div>
                     <div class="control-group" style="margin-top: 10px;">
                         <label for="questionInput">3. Fai una domanda:</label>
-                        <textarea id="questionInput" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical;" placeholder="Es: Quali sono le dimensioni principali?" disabled></textarea>
-                        <button class="btn" id="askBtn" style="background-color: #f39c12; width: 100%; margin-top: 5px;" disabled>
+                        <textarea id="questionInput" rows="3" style="width: 100%; padding: 8px; border: 1px solid #3d4a70; border-radius: 4px; resize: vertical; background-color: #1e2847; color: #e8ecf8;" placeholder="Es: Quali sono le dimensioni principali?" disabled></textarea>
+                        <button class="btn" id="askBtn" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); width: 100%; margin-top: 5px;" disabled>
                             <span id="askBtnText">Chiedi a AI</span>
                         </button>
                     </div>
@@ -904,7 +908,7 @@
                 <!-- Page Navigation Controls -->
                 <div class="page-navigation" id="pageNavigation" style="display: none; margin-top: 10px; text-align: center;">
                     <button class="zoom-btn" id="prevPage" title="Pagina precedente">◄</button>
-                    <span class="page-indicator" id="pageIndicator" style="margin: 0 15px; font-weight: bold; color: #333;">1 / 1</span>
+                    <span class="page-indicator" id="pageIndicator" style="margin: 0 15px; font-weight: bold; color: #e8ecf8;">1 / 1</span>
                     <button class="zoom-btn" id="nextPage" title="Pagina successiva">►</button>
                 </div>
 
@@ -934,7 +938,7 @@
 
                 <!-- Image Container -->
                 <div class="image-container" id="imageContainer">
-                    <p class="placeholder">📄 Carica un file PDF per iniziare<br><small style="font-size: 0.9em; color: #bbb;">oppure trascina un file qui</small></p>
+                    <p class="placeholder">📄 Carica un file PDF per iniziare<br><small style="font-size: 0.9em; color: #b4bdd4;">oppure trascina un file qui</small></p>
                 </div>
             </div>
 
@@ -959,15 +963,15 @@
                 </div>
 
                 <!-- Template Excel/CSV Section -->
-                <div id="templateSection" style="margin-bottom: 15px; padding: 12px; background-color: #1a1d29; border: 2px solid #3498db; border-radius: 6px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #e0e0e0;">📋 Generazione Template Excel/CSV</h3>
+                <div id="templateSection" style="margin-bottom: 15px; padding: 12px; background-color: #151b3e; border: 2px solid #5b8fff; border-radius: 6px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #e8ecf8;">📋 Generazione Template Excel/CSV</h3>
 
                     <!-- Current Template Info -->
                     <div id="currentTemplateInfo" style="margin-bottom: 10px; padding: 8px; background-color: #1f3a1f; border: 1px solid #4caf50; border-radius: 4px; display: none;">
-                        <div style="font-size: 15px; font-weight: bold; color: #e0e0e0; margin-bottom: 2px;">
+                        <div style="font-size: 15px; font-weight: bold; color: #e8ecf8; margin-bottom: 2px;">
                             Template caricato: <span id="currentTemplateName" style="color: #4caf50;">-</span>
                         </div>
-                        <div style="font-size: 14px; color: #a8b2c1;">
+                        <div style="font-size: 14px; color: #b4bdd4;">
                             Usa la sezione "Gestione Prompt" qui sotto per cambiare template o caricarne uno nuovo
                         </div>
                     </div>
@@ -983,26 +987,26 @@
                     </div>
 
                     <!-- Extraction Methods Selection -->
-                    <div style="margin-bottom: 10px; padding: 8px; background-color: #0f1419; border: 1px solid #3d4152; border-radius: 4px;">
-                        <label style="display: block; font-size: 16px; color: #e0e0e0; margin-bottom: 6px; font-weight: bold;">Metodi di estrazione:</label>
+                    <div style="margin-bottom: 10px; padding: 8px; background-color: #0a0e27; border: 1px solid #3d4a70; border-radius: 4px;">
+                        <label style="display: block; font-size: 16px; color: #e8ecf8; margin-bottom: 6px; font-weight: bold;">Metodi di estrazione:</label>
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e0e0e0;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e8ecf8;">
                                 <input type="checkbox" id="methodPdfplumber" checked style="cursor: pointer;" />
                                 <span>📄 PDFPlumber (testo nativo)</span>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e0e0e0;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e8ecf8;">
                                 <input type="checkbox" id="methodOCR" checked style="cursor: pointer;" />
                                 <span>🔍 OCR Avanzato (0° + 90°)</span>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e0e0e0;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e8ecf8;">
                                 <input type="checkbox" id="methodAIAnalysis" checked style="cursor: pointer;" />
                                 <span>🤖 AI Analysis</span>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e0e0e0;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e8ecf8;">
                                 <input type="checkbox" id="methodAISummary" checked style="cursor: pointer;" />
                                 <span>📝 AI Summary</span>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e0e0e0;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; color: #e8ecf8;">
                                 <input type="checkbox" id="methodAIVision" checked style="cursor: pointer;" />
                                 <span>👁️ AI Vision</span>
                             </label>
@@ -1010,12 +1014,12 @@
                     </div>
 
                     <!-- Dimension Prompt Selection (for template generation) -->
-                    <div id="templateDimensionPromptSection" style="margin-bottom: 10px; padding: 8px; background-color: #0f1419; border: 1px solid #ff9800; border-radius: 4px;">
-                        <label style="display: block; font-size: 16px; color: #e0e0e0; margin-bottom: 6px; font-weight: bold;">📐 Prompt Dimensioni (opzionale):</label>
-                        <select id="templateDimensionPromptSelect" style="width: 100%; padding: 6px; font-size: 15px; border: 1px solid #3d4152; border-radius: 4px; background-color: #1e2129; color: #e0e0e0;">
+                    <div id="templateDimensionPromptSection" style="margin-bottom: 10px; padding: 8px; background-color: #0a0e27; border: 1px solid #ff9800; border-radius: 4px;">
+                        <label style="display: block; font-size: 16px; color: #e8ecf8; margin-bottom: 6px; font-weight: bold;">📐 Prompt Dimensioni (opzionale):</label>
+                        <select id="templateDimensionPromptSelect" style="width: 100%; padding: 6px; font-size: 15px; border: 1px solid #3d4a70; border-radius: 4px; background-color: #1e2847; color: #e8ecf8;">
                             <option value="">-- Nessuna estrazione dimensioni --</option>
                         </select>
-                        <div style="font-size: 14px; color: #a8b2c1; margin-top: 4px;">Seleziona un prompt dimensioni salvato per estrarre automaticamente dimensioni durante la generazione del template</div>
+                        <div style="font-size: 14px; color: #b4bdd4; margin-top: 4px;">Seleziona un prompt dimensioni salvato per estrarre automaticamente dimensioni durante la generazione del template</div>
                     </div>
 
                     <!-- Action button -->
@@ -1031,28 +1035,28 @@
                     <select id="savedTemplatesSelect" style="display: none;"></select>
                     <button class="btn" id="saveTemplateBtn" onclick="saveCurrentTemplate()" style="display: none;" disabled></button>
 
-                    <div id="templateStatus" style="font-size: 15px; color: #a8b2c1; text-align: center;"></div>
+                    <div id="templateStatus" style="font-size: 15px; color: #b4bdd4; text-align: center;"></div>
 
                     <!-- Progress Indicator -->
-                    <div id="progressContainer" style="display: none; margin-top: 10px; padding: 10px; background-color: #1a1d29; border: 1px solid #3498db; border-radius: 4px;">
+                    <div id="progressContainer" style="display: none; margin-top: 10px; padding: 10px; background-color: #151b3e; border: 1px solid #5b8fff; border-radius: 4px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <span id="progressText" style="font-size: 16px; font-weight: bold; color: #e0e0e0;">Inizializzazione...</span>
-                            <span id="progressTime" style="font-size: 15px; color: #a8b2c1;">Tempo stimato: --</span>
+                            <span id="progressText" style="font-size: 16px; font-weight: bold; color: #e8ecf8;">Inizializzazione...</span>
+                            <span id="progressTime" style="font-size: 15px; color: #b4bdd4;">Tempo stimato: --</span>
                         </div>
-                        <div style="width: 100%; height: 20px; background-color: #0f1419; border-radius: 10px; overflow: hidden;">
-                            <div id="progressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%); transition: width 0.3s ease;"></div>
+                        <div style="width: 100%; height: 20px; background-color: #0a0e27; border-radius: 10px; overflow: hidden;">
+                            <div id="progressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #5b8fff 0%, #a86fff 100%); transition: width 0.3s ease;"></div>
                         </div>
-                        <div id="progressSteps" style="margin-top: 5px; font-size: 14px; color: #a8b2c1;"></div>
+                        <div id="progressSteps" style="margin-top: 5px; font-size: 14px; color: #b4bdd4;"></div>
                     </div>
                 </div>
 
                 <!-- Unified Prompt Manager -->
-                <div id="unifiedPromptManager" style="margin-bottom: 15px; padding: 10px; background-color: #1a1d29; border: 2px solid #6c757d; border-radius: 6px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 17px; color: #e0e0e0;">⚙️ Gestione Prompt</h3>
+                <div id="unifiedPromptManager" style="margin-bottom: 15px; padding: 10px; background-color: #151b3e; border: 2px solid #3d4a70; border-radius: 6px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 17px; color: #e8ecf8;">⚙️ Gestione Prompt</h3>
 
                     <!-- Prompt Type Selector -->
-                    <div style="margin-bottom: 10px; padding: 8px; background-color: #0f1419; border: 1px solid #3d4152; border-radius: 4px;">
-                        <label style="display: block; font-size: 15px; color: #e0e0e0; margin-bottom: 6px; font-weight: bold;">Tipo di prompt:</label>
+                    <div style="margin-bottom: 10px; padding: 8px; background-color: #0a0e27; border: 1px solid #3d4a70; border-radius: 4px;">
+                        <label style="display: block; font-size: 15px; color: #e8ecf8; margin-bottom: 6px; font-weight: bold;">Tipo di prompt:</label>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="radio" name="promptType" value="dimension" id="promptTypeDimension" checked onchange="switchPromptType('dimension')" style="cursor: pointer;" />
@@ -1071,18 +1075,18 @@
 
                     <!-- Current Selection Summary -->
                     <div id="promptTypeSummary" style="margin-bottom: 10px; padding: 8px; background-color: #fff3cd; border-left: 4px solid #ff9800; border-radius: 4px;">
-                        <div style="font-size: 13px; font-weight: bold; color: #2c3e50;">
+                        <div style="font-size: 13px; font-weight: bold; color: #e8ecf8;">
                             <span id="promptTypeIcon">📐</span>
                             <span id="promptTypeLabel">Prompt Dimensioni</span>
                         </div>
-                        <div id="promptTypeDescription" style="font-size: 12px; color: #7f8c8d; margin-top: 2px;">
+                        <div id="promptTypeDescription" style="font-size: 12px; color: #b4bdd4; margin-top: 2px;">
                             Gestisci i prompt per l'estrazione automatica delle dimensioni dai disegni tecnici
                         </div>
                     </div>
 
                     <!-- Prompt Library -->
                     <div style="margin-bottom: 8px;">
-                        <label style="display: block; font-size: 13px; color: #2c3e50; margin-bottom: 3px;">Prompt Salvati:</label>
+                        <label style="display: block; font-size: 13px; color: #e8ecf8; margin-bottom: 3px;">Prompt Salvati:</label>
                         <div style="display: flex; gap: 4px; align-items: stretch;">
                             <select id="unifiedPromptSelect" style="flex: 1; min-width: 0; padding: 5px; font-size: 13px; border: 1px solid #bdc3c7; border-radius: 4px;">
                                 <option value="">-- Seleziona --</option>
@@ -1095,14 +1099,14 @@
 
                         <!-- Template list preview (only visible in template mode) -->
                         <div id="templateListPreview" style="display: none; margin-top: 6px; padding: 6px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; max-height: 120px; overflow-y: auto;">
-                            <div style="font-size: 12px; color: #6c757d; margin-bottom: 4px; font-weight: bold;">Template disponibili:</div>
-                            <div id="templateListContainer" style="font-size: 12px; color: #495057;"></div>
+                            <div style="font-size: 12px; color: #b4bdd4; margin-bottom: 4px; font-weight: bold;">Template disponibili:</div>
+                            <div id="templateListContainer" style="font-size: 12px; color: #e8ecf8;"></div>
                         </div>
                     </div>
 
                     <!-- Import from file -->
                     <div style="margin-bottom: 6px;">
-                        <label style="display: block; font-size: 13px; color: #2c3e50; margin-bottom: 3px;">Importa file:</label>
+                        <label style="display: block; font-size: 13px; color: #e8ecf8; margin-bottom: 3px;">Importa file:</label>
                         <input type="file" id="unifiedPromptFileInput" accept=".txt" style="display: block; width: 100%; padding: 5px; font-size: 13px; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;" />
                     </div>
 
@@ -1119,13 +1123,13 @@
 
                     <!-- Prompt name for saving -->
                     <div style="margin-bottom: 6px;">
-                        <label style="display: block; font-size: 13px; color: #2c3e50; margin-bottom: 3px;">Nome:</label>
+                        <label style="display: block; font-size: 13px; color: #e8ecf8; margin-bottom: 3px;">Nome:</label>
                         <input type="text" id="unifiedPromptName" placeholder="Es: Dim. Meccaniche" style="width: 100%; padding: 5px; font-size: 13px; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;" />
                     </div>
 
                     <!-- Action buttons -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px;">
-                        <button class="btn" id="savePromptBtn" onclick="saveUnifiedPrompt()" style="padding: 6px; font-size: 13px; background-color: #6c757d;" disabled>
+                        <button class="btn" id="savePromptBtn" onclick="saveUnifiedPrompt()" style="padding: 6px; font-size: 13px; background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%);" disabled>
                             💾 Salva
                         </button>
                         <button class="btn" id="executePromptBtn" style="padding: 6px; font-size: 13px; background-color: #4caf50; display: none;" disabled>
@@ -1133,7 +1137,7 @@
                         </button>
                     </div>
 
-                    <div id="unifiedPromptStatus" style="font-size: 12px; color: #7f8c8d; text-align: center; min-height: 14px;"></div>
+                    <div id="unifiedPromptStatus" style="font-size: 12px; color: #b4bdd4; text-align: center; min-height: 14px;"></div>
                 </div>
 
                 <div class="text-list" id="textList">

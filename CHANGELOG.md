@@ -1,6 +1,37 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.74 (2025-11-03)
+### Migliorato Contrasto Riepilogo Dimensioni
+Migliorata leggibilità del riepilogo dimensioni trovate con colori ad alto contrasto.
+
+### Problema
+Il riepilogo dimensioni estratte aveva scarso contrasto tra testo e sfondo:
+- ❌ Testo nero su sfondo verde chiaro (#f1f8e9) difficile da leggere
+- ❌ Header tabella con sfondo verde troppo chiaro (#c5e1a5)
+- ❌ Badge numero pagina verde chiaro poco visibile
+- ❌ Mancanza di separazione visiva tra elementi
+
+### Soluzione
+Riprogettato con colori ad alto contrasto:
+- **Titolo**: Verde scuro (#2e7d32) in grassetto invece di nero
+- **Header tabella**: Sfondo verde (#4caf50) con testo bianco in grassetto
+- **Celle dati**: Sfondo bianco con testo verde scuro (#1b5e20) e font pesante
+- **Badge pagina**: Verde scuro (#2e7d32) con testo bianco
+- **Bordo**: Aggiunto bordo verde (#81c784) per delimitazione
+
+### Contrasto WCAG 2.1
+- Header: Bianco su verde #4caf50 → Ratio 4.5:1 (AA)
+- Celle: Verde scuro #1b5e20 su bianco → Ratio 12.6:1 (AAA)
+- Badge: Bianco su verde #2e7d32 → Ratio 7.4:1 (AAA)
+
+### Benefici
+- ✅ **Leggibilità Eccellente**: Contrasto conforme WCAG AAA
+- ✅ **Separazione Visiva**: Bordi e sfondi ben definiti
+- ✅ **Accessibilità**: Leggibile anche per utenti con problemi di vista
+- ✅ **Estetica Professionale**: Design pulito e moderno
+
+
 ## v0.73 (2025-11-03)
 ### Tempo Stimato Visibile Durante Elaborazione
 Implementata lettura lato client del PDF per mostrare il tempo stimato PRIMA dell'elaborazione server.

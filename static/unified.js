@@ -1,5 +1,5 @@
-// Version: 0.73
-console.log('[Init] unified.js v0.73 loaded');
+// Version: 0.74
+console.log('[Init] unified.js v0.74 loaded');
 
 // Global state
 let currentZoom = 100;
@@ -658,22 +658,22 @@ async function uploadFile() {
 
                 // Crea tabella riepilogo
                 const summaryHtml = allDimensions.length > 0 ? `
-                    <div style="background-color: #f1f8e9; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
-                        <strong>📊 Riepilogo Dimensioni Trovate:</strong>
+                    <div style="background-color: #e8f5e9; padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #81c784;">
+                        <strong style="color: #2e7d32; font-size: 14px;">📊 Riepilogo Dimensioni Trovate:</strong>
                         <div style="max-height: 150px; overflow-y: auto; margin-top: 8px;">
                             <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                                 <thead>
-                                    <tr style="background-color: #c5e1a5;">
-                                        <th style="padding: 4px; text-align: left; border: 1px solid #aed581;">Dimensione</th>
-                                        <th style="padding: 4px; text-align: center; border: 1px solid #aed581; width: 80px;">Pagina</th>
+                                    <tr style="background-color: #4caf50;">
+                                        <th style="padding: 6px; text-align: left; border: 1px solid #388e3c; color: white; font-weight: bold;">Dimensione</th>
+                                        <th style="padding: 6px; text-align: center; border: 1px solid #388e3c; width: 80px; color: white; font-weight: bold;">Pagina</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${allDimensions.map(dim => `
-                                        <tr>
-                                            <td style="padding: 4px; border: 1px solid #dcedc8;">${escapeHtml(dim.context)}</td>
-                                            <td style="padding: 4px; text-align: center; border: 1px solid #dcedc8;">
-                                                <span style="background-color: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;">
+                                        <tr style="background-color: white;">
+                                            <td style="padding: 6px; border: 1px solid #c8e6c9; color: #1b5e20; font-weight: 500;">${escapeHtml(dim.context)}</td>
+                                            <td style="padding: 6px; text-align: center; border: 1px solid #c8e6c9;">
+                                                <span style="background-color: #2e7d32; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 13px;">
                                                     ${dim.page}
                                                 </span>
                                             </td>

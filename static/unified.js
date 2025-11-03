@@ -95,6 +95,38 @@ document.addEventListener('DOMContentLoaded', function() {
     timeEstimated = document.getElementById('timeEstimated');
     progressMessage = document.getElementById('progressMessage');
 
+    // Verify progress elements exist
+    if (!timeEstimated) {
+        console.error('[Init] timeEstimated element not found!');
+    }
+
+    // Migrate old stats format (v0.69) to new format (v0.70+)
+    const migrateStatsFormat = () => {
+        const storedStats = localStorage.getItem('processingStats');
+        if (storedStats) {
+            const stats = JSON.parse(storedStats);
+            // Check if old format (has avgTimePerPage and totalProcessed)
+            if (stats.hasOwnProperty('avgTimePerPage') && stats.hasOwnProperty('totalProcessed')) {
+                console.log('[Migration] Detected old stats format (v0.69), migrating to v0.70+...');
+                // Convert: old avgTimePerPage was already the weighted average
+                // We need to estimate sumOfAvgTimesPerPage from it
+                const newStats = {
+                    sumOfAvgTimesPerPage: stats.avgTimePerPage * stats.totalProcessed,
+                    totalDocuments: stats.totalProcessed
+                };
+                localStorage.setItem('processingStats', JSON.stringify(newStats));
+                console.log(`[Migration] Migrated ${stats.totalProcessed} documents, avg ${(stats.avgTimePerPage/1000).toFixed(2)}s/page`);
+            } else if (stats.hasOwnProperty('sumOfAvgTimesPerPage') && stats.hasOwnProperty('totalDocuments')) {
+                console.log('[Migration] Stats already in new format (v0.70+), no migration needed');
+            } else {
+                console.warn('[Migration] Unknown stats format, resetting...');
+                localStorage.setItem('processingStats', JSON.stringify({ sumOfAvgTimesPerPage: 0, totalDocuments: 0 }));
+            }
+        }
+    };
+
+    migrateStatsFormat();
+
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -369,12 +401,22 @@ async function uploadFile() {
             const storedStatsNow = localStorage.getItem('processingStats');
             if (storedStatsNow) {
                 const stats = JSON.parse(storedStatsNow);
+                console.log(`[Stats] Loaded: ${stats.totalDocuments} documents, sum=${(stats.sumOfAvgTimesPerPage/1000).toFixed(2)}s`);
                 // Calculate average time per page from accumulated document averages
                 if (stats.sumOfAvgTimesPerPage > 0 && stats.totalDocuments > 0) {
                     const avgTimePerPage = stats.sumOfAvgTimesPerPage / stats.totalDocuments;
                     estimatedTime = (avgTimePerPage * data.page_count) / 1000; // Convert to seconds
                     timeEstimated.textContent = estimatedTime.toFixed(1);
+                    console.log(`[Stats] Estimated time: ${estimatedTime.toFixed(1)}s for ${data.page_count} pages (avg: ${(avgTimePerPage/1000).toFixed(2)}s/page)`);
+                } else {
+                    console.log(`[Stats] No valid stats yet - first document or invalid data`);
+                    timeEstimated.textContent = 'N/D';
+                    timeEstimated.title = 'Prima importazione - tempo non disponibile';
                 }
+            } else {
+                console.log(`[Stats] No stats found in localStorage - this is the first document`);
+                timeEstimated.textContent = 'N/D';
+                timeEstimated.title = 'Prima importazione - tempo non disponibile';
             }
 
             // Calculate processing time and update statistics

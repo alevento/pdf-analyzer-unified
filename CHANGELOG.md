@@ -1,6 +1,137 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.71 (2025-11-03)
+### Fix Visualizzazione Tempo Stimato + Migrazione Stats
+Risolti problemi con visualizzazione tempo stimato e aggiunta migrazione automatica formato statistiche.
+
+### Problema
+Dopo v0.70, gli utenti segnalavano che il tempo stimato non veniva visualizzato:
+- ❌ Tempo stimato rimaneva "--" anche con statistiche esistenti
+- ❌ Utenti con v0.69 avevano stats in formato vecchio non compatibile
+- ❌ Nessun feedback se stats non disponibili (primo documento)
+- ❌ Difficile debuggare problemi di visualizzazione
+
+### Soluzione
+1. **Migrazione Automatica**: Converte automaticamente stats da v0.69 a v0.70+ all'avvio
+2. **Logging Debug**: Aggiunto logging dettagliato per tracciare calcoli e problemi
+3. **Messaggio Chiaro**: Mostra "N/D" con tooltip esplicativo per prima importazione
+4. **Verifica DOM**: Controlla che elemento timeEstimated esista all'inizializzazione
+
+### Migrazione Automatica Stats
+
+**Problema**: Utenti con v0.69 hanno formato vecchio in localStorage:
+```javascript
+// v0.69 (vecchio):
+{ avgTimePerPage: 5000, totalProcessed: 10 }
+
+// v0.70+ (nuovo):
+{ sumOfAvgTimesPerPage: 50000, totalDocuments: 10 }
+```
+
+**Soluzione** (unified.js:103-128):
+```javascript
+const migrateStatsFormat = () => {
+    const stats = JSON.parse(localStorage.getItem('processingStats'));
+    // Detect old format
+    if (stats.hasOwnProperty('avgTimePerPage') && stats.hasOwnProperty('totalProcessed')) {
+        console.log('[Migration] Detected old format, migrating...');
+        const newStats = {
+            sumOfAvgTimesPerPage: stats.avgTimePerPage * stats.totalProcessed,
+            totalDocuments: stats.totalProcessed
+        };
+        localStorage.setItem('processingStats', JSON.stringify(newStats));
+    }
+};
+```
+
+**Conservazione Dati**:
+- Media preservata: `(5000 × 10) / 10 = 5000ms/pagina` ✅
+- Numero documenti preservato: 10 → 10 ✅
+- Migrazione automatica e trasparente all'utente
+
+### Logging Debug Dettagliato
+
+**Console Output - Prima Importazione**:
+```
+[Migration] Stats already in new format (v0.70+), no migration needed
+[Stats] No stats found in localStorage - this is the first document
+```
+
+**Console Output - Con Stats Esistenti**:
+```
+[Migration] Stats already in new format (v0.70+), no migration needed
+[Stats] Loaded: 5 documents, sum=125.34s
+[Stats] Estimated time: 25.1s for 10 pages (avg: 2.51s/page)
+[Performance] Processing time: 24.80s for 10 pages
+[Performance] Time per page (this doc): 2.48s
+[Performance] Global average time per page: 2.50s (based on 6 documents)
+```
+
+**Console Output - Migrazione da v0.69**:
+```
+[Migration] Detected old stats format (v0.69), migrating to v0.70+...
+[Migration] Migrated 12 documents, avg 3.25s/page
+[Stats] Loaded: 12 documents, sum=39.00s
+[Stats] Estimated time: 32.5s for 10 pages (avg: 3.25s/page)
+```
+
+### Visualizzazione Migliorata
+
+**Prima Importazione**:
+- Mostra: "📊 Stimato: **N/D**s"
+- Tooltip: "Prima importazione - tempo non disponibile"
+- Chiaro che è normale per il primo documento
+
+**Importazioni Successive**:
+- Mostra: "📊 Stimato: **15.3**s" (esempio)
+- Calcolo accurato basato su statistiche accumulate
+
+### Codice Modificato
+
+**1. Migrazione Automatica** (unified.js:103-128):
+- Detect old format `avgTimePerPage` + `totalProcessed`
+- Convert to new format `sumOfAvgTimesPerPage` + `totalDocuments`
+- Preserva media e contatore documenti
+
+**2. Logging Stats** (unified.js:375-393):
+```javascript
+console.log(`[Stats] Loaded: ${stats.totalDocuments} documents, sum=${(stats.sumOfAvgTimesPerPage/1000).toFixed(2)}s`);
+console.log(`[Stats] Estimated time: ${estimatedTime.toFixed(1)}s for ${data.page_count} pages`);
+```
+
+**3. Messaggio N/D** (unified.js:386-392):
+```javascript
+timeEstimated.textContent = 'N/D';
+timeEstimated.title = 'Prima importazione - tempo non disponibile';
+```
+
+**4. Verifica DOM** (unified.js:98-101):
+```javascript
+if (!timeEstimated) {
+    console.error('[Init] timeEstimated element not found!');
+}
+```
+
+### Benefici
+- ✅ **Retrocompatibilità**: Migrazione automatica da v0.69 senza perdita dati
+- ✅ **Debuggability**: Logging dettagliato per identificare problemi
+- ✅ **UX Migliorata**: Messaggio chiaro per prima importazione
+- ✅ **Robustezza**: Verifica elemento DOM esista
+- ✅ **Trasparenza**: Console mostra tutti i calcoli e decisioni
+
+### Fix Applicati
+1. ✅ Tempo stimato ora sempre visibile (N/D o valore numerico)
+2. ✅ Migrazione automatica stats v0.69 → v0.70+
+3. ✅ Logging console per debug e trasparenza
+4. ✅ Tooltip esplicativo per prima importazione
+5. ✅ Verifica elemento DOM all'inizializzazione
+
+### File Modificati
+- `static/unified.js`: Migrazione stats, logging, fix visualizzazione (3 sezioni)
+- `VERSION.txt`: Aggiornato a 0.71
+
+
 ## v0.70 (2025-11-03)
 ### Sistema Stima Tempi Ottimizzato
 Miglioramento del sistema di stima dei tempi di importazione con metodo media-dei-tempi-medi per maggiore accuratezza.

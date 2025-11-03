@@ -13,8 +13,8 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
+            background-color: #0f1419;
+            color: #e0e0e0;
         }
 
         .container {
@@ -24,11 +24,13 @@
         }
 
         header {
-            background-color: #2c3e50;
+            background: linear-gradient(135deg, #1a1d29 0%, #2d3142 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
+            border: 1px solid #2d3142;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .header-top {
@@ -89,9 +91,10 @@
         #fileInput {
             flex: 1;
             padding: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid #3d4152;
             border-radius: 4px;
-            background-color: white;
+            background-color: #1e2129;
+            color: #e0e0e0;
         }
 
         .btn {
@@ -154,8 +157,8 @@
         }
 
         .selected-text-box {
-            background-color: #e8f4f8;
-            border: 2px solid #3498db;
+            background-color: #1a1d29;
+            border: 2px solid #3d4152;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
@@ -163,11 +166,11 @@
         }
 
         .selected-text-box strong {
-            color: #2c3e50;
+            color: #a8b2c1;
         }
 
         #selectedText {
-            color: #2980b9;
+            color: #4a9eff;
             font-size: 20px;
             font-weight: bold;
             margin-left: 10px;
@@ -181,10 +184,11 @@
         }
 
         .left-panel, .right-panel {
-            background-color: white;
+            background-color: #1a1d29;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 1px solid #2d3142;
             min-width: 0;
             overflow: hidden;
         }
@@ -195,9 +199,9 @@
 
         .left-panel h2, .right-panel h2 {
             margin-bottom: 15px;
-            color: #2c3e50;
+            color: #e0e0e0;
             font-size: 20px;
-            border-bottom: 2px solid #3498db;
+            border-bottom: 2px solid #4a9eff;
             padding-bottom: 10px;
         }
 
@@ -210,9 +214,9 @@
 
         .tab-btn {
             padding: 8px 16px;
-            background-color: #ecf0f1;
-            color: #2c3e50;
-            border: 2px solid #bdc3c7;
+            background-color: #2d3142;
+            color: #a8b2c1;
+            border: 2px solid #3d4152;
             border-radius: 4px;
             cursor: pointer;
             font-size: 15px;
@@ -220,21 +224,23 @@
         }
 
         .tab-btn:hover {
-            background-color: #d5dbdb;
+            background-color: #3d4152;
+            color: #e0e0e0;
         }
 
         .tab-btn.active {
-            background-color: #3498db;
+            background-color: #4a9eff;
             color: white;
-            border-color: #2980b9;
+            border-color: #3d8bfd;
         }
 
         .control-section {
             display: none;
             padding: 15px;
-            background-color: #f8f9fa;
+            background-color: #0f1419;
             border-radius: 6px;
             margin-bottom: 15px;
+            border: 1px solid #2d3142;
         }
 
         .control-section.active {
@@ -254,16 +260,18 @@
             margin-bottom: 5px;
             font-weight: 500;
             font-size: 16px;
-            color: #2c3e50;
+            color: #a8b2c1;
         }
 
         .control-group select,
         .control-group input[type="number"] {
             width: 100%;
             padding: 8px 12px;
-            border: 1px solid #ced4da;
+            border: 1px solid #3d4152;
             border-radius: 4px;
             font-size: 16px;
+            background-color: #1e2129;
+            color: #e0e0e0;
         }
 
         .button-group {
@@ -297,7 +305,7 @@
 
         .zoom-level {
             font-size: 16px;
-            color: #2c3e50;
+            color: #e0e0e0;
             font-weight: bold;
             min-width: 60px;
             text-align: center;
@@ -306,12 +314,12 @@
         .image-container {
             width: 100%;
             overflow: auto;
-            border: 1px solid #ddd;
+            border: 1px solid #3d4152;
             border-radius: 4px;
             min-height: 500px;
             max-height: 700px;
             position: relative;
-            background-color: #fafafa;
+            background-color: #0f1419;
         }
 
         .image-container img {
@@ -351,8 +359,8 @@
         .text-item {
             padding: 12px;
             margin-bottom: 8px;
-            background-color: #f8f9fa;
-            border: 2px solid #dee2e6;
+            background-color: #2d3142;
+            border: 2px solid #3d4152;
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
@@ -363,14 +371,14 @@
         }
 
         .text-item:hover {
-            background-color: #e9ecef;
-            border-color: #3498db;
+            background-color: #3d4152;
+            border-color: #4a9eff;
             border-width: 3px;
             transform: translateX(5px);
         }
 
         .text-item.highlighted {
-            background-color: #fff3cd;
+            background-color: #4d4520;
             border-color: #ffc107;
             border-width: 3px;
             animation: pulse 1.5s ease-in-out infinite;
@@ -378,12 +386,12 @@
 
         @keyframes pulse {
             0%, 100% {
-                background-color: #fff3cd;
+                background-color: #4d4520;
                 border-color: #ffc107;
                 box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
             }
             50% {
-                background-color: #ffd700;
+                background-color: #6a5d1a;
                 border-color: #ff9800;
                 box-shadow: 0 0 15px 5px rgba(255, 193, 7, 0.5);
             }
@@ -391,7 +399,7 @@
 
         .text-content {
             font-weight: bold;
-            color: #2c3e50;
+            color: #e0e0e0;
             font-size: 18px;
             word-break: break-word;
             overflow-wrap: break-word;
@@ -407,16 +415,16 @@
         .text-count {
             font-size: 15px;
             font-weight: bold;
-            color: #2c3e50;
-            background-color: #d6eaf8;
+            color: #e0e0e0;
+            background-color: #3d4152;
             padding: 2px 8px;
             border-radius: 12px;
         }
 
         .text-confidence {
             font-size: 14px;
-            color: #6c757d;
-            background-color: #e9ecef;
+            color: #a8b2c1;
+            background-color: #2d3142;
             padding: 2px 8px;
             border-radius: 12px;
         }
@@ -455,20 +463,20 @@
 
         .placeholder {
             text-align: center;
-            color: #999;
+            color: #6c757d;
             padding: 40px;
             font-style: italic;
         }
 
         /* Drag and Drop Styles */
         .image-container.drag-over {
-            background-color: #e3f2fd;
-            border: 2px dashed #2196f3;
+            background-color: #1e2a3a;
+            border: 2px dashed #4a9eff;
             transition: all 0.3s ease;
         }
 
         .image-container.drag-over .placeholder {
-            color: #2196f3;
+            color: #4a9eff;
             font-weight: bold;
         }
 
@@ -613,16 +621,16 @@
         .loading {
             text-align: center;
             padding: 20px;
-            color: #3498db;
+            color: #4a9eff;
         }
 
         .number-count {
-            background-color: #e8f4f8;
+            background-color: #2d3142;
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 4px;
             font-size: 15px;
-            color: #2c3e50;
+            color: #e0e0e0;
         }
 
         .legend {
@@ -630,10 +638,11 @@
             gap: 15px;
             justify-content: center;
             padding: 10px;
-            background-color: #f8f9fa;
+            background-color: #2d3142;
             border-radius: 4px;
             margin-bottom: 10px;
             font-size: 14px;
+            color: #e0e0e0;
         }
 
         .legend-item {
@@ -657,29 +666,29 @@
             border-color: #FF00FF;
         }
 
-        /* Scrollbar personalizzata */
+        /* Scrollbar personalizzata - Dark Mode */
         .text-list::-webkit-scrollbar, .image-container::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
 
         .text-list::-webkit-scrollbar-track, .image-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #1a1d29;
             border-radius: 4px;
         }
 
         .text-list::-webkit-scrollbar-thumb, .image-container::-webkit-scrollbar-thumb {
-            background: #888;
+            background: #3d4152;
             border-radius: 4px;
         }
 
         .text-list::-webkit-scrollbar-thumb:hover, .image-container::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #4a9eff;
         }
 
-        /* AI Results Styling */
+        /* AI Results Styling - Dark Mode */
         .ai-result {
-            background-color: #f8f9fa;
+            background-color: #1a1d29;
             border: 2px solid #9b59b6;
             border-radius: 8px;
             padding: 15px;
@@ -687,7 +696,7 @@
         }
 
         .ai-result h3 {
-            color: #9b59b6;
+            color: #c794ff;
             margin-bottom: 10px;
             font-size: 18px;
             border-bottom: 2px solid #9b59b6;
@@ -695,7 +704,7 @@
         }
 
         .ai-result-item {
-            background-color: white;
+            background-color: #0f1419;
             padding: 10px;
             margin: 5px 0;
             border-radius: 4px;
@@ -715,16 +724,16 @@
         .ai-loading {
             text-align: center;
             padding: 20px;
-            color: #9b59b6;
+            color: #c794ff;
             font-style: italic;
         }
 
         .ai-error {
-            background-color: #ffe8e8;
+            background-color: #3d1f1f;
             border: 2px solid #e74c3c;
             border-radius: 8px;
             padding: 15px;
-            color: #c0392b;
+            color: #ff7f7f;
             margin-bottom: 15px;
         }
     </style>

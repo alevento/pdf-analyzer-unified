@@ -1,6 +1,175 @@
 # Changelog - Analizzatore OCR per Disegni Tecnici
 
 
+## v0.67 (2025-10-31)
+### Dark Mode - Interfaccia Scura Moderna e Professionale
+Trasformazione completa dell'interfaccia in dark mode con palette di colori moderna e ottimizzata per ridurre l'affaticamento visivo.
+
+### Problema
+L'interfaccia light mode causava:
+- ❌ Affaticamento visivo durante uso prolungato
+- ❌ Scarso contrasto in ambienti con poca luce
+- ❌ Aspetto non moderno o professionale
+- ❌ Elevato consumo energetico su schermi OLED
+
+### Soluzione
+Implementato tema dark mode completo con:
+1. **Palette colori scuri**: Background #0f1419, panels #1a1d29
+2. **Contrasti ottimizzati**: Testi chiari su sfondi scuri
+3. **Elementi UI aggiornati**: Tutti i componenti con colori dark
+4. **Gradienti moderni**: Header con gradiente #1a1d29 → #2d3142
+
+### Palette Colori Dark Mode
+
+**Backgrounds**:
+- Body: `#0f1419` (nero-bluastro profondo)
+- Panels: `#1a1d29` (grigio scuro)
+- Sections: `#2d3142` (grigio medio)
+- Inputs: `#1e2129` (grigio scuro)
+
+**Testi**:
+- Primario: `#e0e0e0` (bianco sporco)
+- Secondario: `#a8b2c1` (grigio chiaro)
+- Accento: `#4a9eff` (blu brillante)
+
+**Borders**:
+- Standard: `#3d4152` (grigio-blu)
+- Header: `#2d3142` (grigio scuro)
+- Accento: `#4a9eff` (blu)
+
+**Modifiche CSS (unified.html)**:
+
+```css
+/* Body - Dark Background */
+body {
+    background-color: #0f1419;
+    color: #e0e0e0;
+}
+
+/* Header - Gradiente Moderno */
+header {
+    background: linear-gradient(135deg, #1a1d29 0%, #2d3142 100%);
+    border: 1px solid #2d3142;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Panels - Dark Cards */
+.left-panel, .right-panel {
+    background-color: #1a1d29;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    border: 1px solid #2d3142;
+}
+
+/* Inputs - Dark Fields */
+#fileInput, .control-group select, .control-group input {
+    background-color: #1e2129;
+    color: #e0e0e0;
+    border: 1px solid #3d4152;
+}
+
+/* Buttons - Mantenuti con accenti blu */
+.tab-btn {
+    background-color: #2d3142;
+    color: #a8b2c1;
+    border: 2px solid #3d4152;
+}
+
+.tab-btn.active {
+    background-color: #4a9eff;
+    color: white;
+}
+
+/* Text Items - Dark Cards */
+.text-item {
+    background-color: #2d3142;
+    border: 2px solid #3d4152;
+}
+
+.text-item:hover {
+    background-color: #3d4152;
+    border-color: #4a9eff;
+}
+
+/* Scrollbar - Dark Theme */
+::-webkit-scrollbar-track {
+    background: #1a1d29;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #3d4152;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4a9eff;
+}
+```
+
+### Elementi Aggiornati
+
+**Componenti Principali**:
+- ✅ Body e container background
+- ✅ Header con gradiente dark
+- ✅ Left/Right panels
+- ✅ Selected text box
+- ✅ Tabs e navigation
+
+**Controls e Inputs**:
+- ✅ File input
+- ✅ Buttons (primary, success, zoom)
+- ✅ Select dropdowns
+- ✅ Number inputs
+- ✅ Confidence controls
+
+**Liste e Cards**:
+- ✅ Text items list
+- ✅ Number count badge
+- ✅ Legend badges
+- ✅ AI result cards
+- ✅ Error messages
+
+**Altri Elementi**:
+- ✅ Image container
+- ✅ Placeholder text
+- ✅ Drag and drop overlay
+- ✅ Loading indicators
+- ✅ Scrollbars personalizzate
+
+### Benefici
+
+**User Experience**:
+- ✅ **Riduzione affaticamento**: Meno luce blu, più confortevole
+- ✅ **Migliore contrasto**: Lettura facilitata in ogni condizione
+- ✅ **Aspetto professionale**: Design moderno e raffinato
+- ✅ **Minore consumo**: Risparmio energetico su OLED
+
+**Accessibilità**:
+- ✅ Contrasti ottimizzati WCAG compliant
+- ✅ Colori accento ben visibili
+- ✅ Hover states chiari
+- ✅ Focus indicators mantenuti
+
+### Palette Comparativa
+
+| Elemento | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Body BG | #f5f5f5 | #0f1419 |
+| Panel BG | white | #1a1d29 |
+| Text | #333 | #e0e0e0 |
+| Border | #ddd | #3d4152 |
+| Accent | #3498db | #4a9eff |
+| Input BG | white | #1e2129 |
+
+### Note Tecniche
+- Mantenuta compatibilità con progress indicator v0.66
+- Gradienti e animazioni preservati
+- Shadow e glow effect adattati per dark
+- Colori sorgente badges mantenuti per riconoscibilità
+
+### File Modificati
+- `templates/unified.html`: Trasformazione completa CSS in dark mode
+- `VERSION.txt`: Aggiornato a 0.67
+
+
 ## v0.66 (2025-10-31)
 ### Progress Indicator Moderno con Timer in Tempo Reale
 Interfaccia visuale moderna e accattivante per monitorare il progresso di elaborazione dei PDF in tempo reale.

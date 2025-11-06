@@ -1,5 +1,5 @@
-// Version: 0.74
-console.log('[Init] unified.js v0.74 loaded');
+// Version: 0.77.2
+console.log('[Init] unified.js v0.77.2 loaded - Estrazione Pagina Corrente');
 
 // Global state
 let currentZoom = 100;
@@ -19,12 +19,12 @@ let uploadStartTime = null; // Track upload processing start time
 let processingStats = null; // Store processing statistics: { sumOfAvgTimesPerPage, totalDocuments }
 let progressTimerInterval = null; // Interval for updating progress timer
 let estimatedTime = null; // Estimated total time based on page count
+let currentDocumentFilePath = null; // Store file path for documents loaded from cache
 
 // DOM elements
 let fileInput, uploadBtn, status, imageContainer, textList;
-let pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr;
-let confidenceThreshold, rotationSelect, psmSelect;
-let extractNumbersBtn, extractPdfplumberBtn, extractOcrBtn;
+let confidenceThreshold;
+let extractUnifiedBtn;
 let zoomControls, legend, numberCount, selectedText;
 let analyzeBtn, visionBtn, askBtn, summarizeBtn, questionInput, opusStatus;
 let pageNavigation, prevPageBtn, nextPageBtn, pageIndicator;
@@ -38,17 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
     imageContainer = document.getElementById('imageContainer');
     textList = document.getElementById('textList');
 
-    pageSelectNumbers = document.getElementById('pageSelectNumbers');
-    pageSelectPdfplumber = document.getElementById('pageSelectPdfplumber');
-    pageSelectOcr = document.getElementById('pageSelectOcr');
-
     confidenceThreshold = document.getElementById('confidenceThreshold');
-    rotationSelect = document.getElementById('rotationSelect');
-    psmSelect = document.getElementById('psmSelect');
-
-    extractNumbersBtn = document.getElementById('extractNumbersBtn');
-    extractPdfplumberBtn = document.getElementById('extractPdfplumberBtn');
-    extractOcrBtn = document.getElementById('extractOcrBtn');
+    extractUnifiedBtn = document.getElementById('extractUnifiedBtn');
 
     zoomControls = document.getElementById('zoomControls');
     legend = document.getElementById('legend');
@@ -135,10 +126,8 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
-    // Extract buttons
-    extractNumbersBtn.addEventListener('click', handleExtractNumbers);
-    extractPdfplumberBtn.addEventListener('click', handleExtractPdfplumber);
-    extractOcrBtn.addEventListener('click', handleExtractOcr);
+    // Unified extract button
+    extractUnifiedBtn.addEventListener('click', handleExtractUnified);
 
     // Unified prompt manager execute button
     const executePromptBtn = document.getElementById('executePromptBtn');
@@ -410,7 +399,8 @@ async function uploadFile() {
                 animation: spin 1s linear infinite;
                 margin: 0 auto 20px;
             "></div>
-            <p style="color: #666; font-size: 14px;">Elaborazione in corso...</p>
+            <p id="upload-status-message" style="color: #666; font-size: 14px;">Elaborazione in corso...</p>
+            <p id="upload-status-details" style="color: #999; font-size: 12px; margin-top: 10px;"></p>
         </div>
         <style>
             @keyframes spin {
@@ -421,6 +411,30 @@ async function uploadFile() {
     `;
     textList.innerHTML = '<p class="placeholder">Attendi...</p>';
 
+    // Poll upload status to show retry attempts in real-time
+    const statusPollInterval = setInterval(async () => {
+        try {
+            const statusResponse = await fetch('/upload_status');
+            const status = await statusResponse.json();
+
+            const messageEl = document.getElementById('upload-status-message');
+            const detailsEl = document.getElementById('upload-status-details');
+
+            if (messageEl && status.status !== 'idle') {
+                messageEl.textContent = status.message || 'Elaborazione in corso...';
+
+                if (status.status === 'retry') {
+                    detailsEl.textContent = `Tentativo ${status.retry_attempt}/5 con temperatura +${status.temperature.toFixed(1)}`;
+                    detailsEl.style.color = '#ff9800';
+                } else {
+                    detailsEl.textContent = '';
+                }
+            }
+        } catch (error) {
+            console.log('[Status Poll] Error:', error);
+        }
+    }, 500); // Poll every 500ms
+
     try {
         console.log('[Upload] Sending fetch request to /upload...');
         const response = await fetch('/upload', {
@@ -429,8 +443,9 @@ async function uploadFile() {
         });
         console.log('[Upload] Response received, status:', response.status);
 
-        // Ferma animazione progressione
+        // Ferma animazione progressione e polling
         clearInterval(progressInterval);
+        clearInterval(statusPollInterval);
 
         const data = await response.json();
         console.log('[Upload] Response data:', {success: data.success, page_count: data.page_count});
@@ -506,20 +521,11 @@ async function uploadFile() {
                 pdfTypeBadge.style.display = 'block';
             }
 
-            // Update all page selectors
-            [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
-                select.max = data.page_count;
-                select.value = 1;
-                select.disabled = false;
-            });
+            // Page selectors removed (unified extraction interface)
 
-            // Enable controls
-            confidenceThreshold.disabled = false;
-            rotationSelect.disabled = false;
-            psmSelect.disabled = false;
-            extractNumbersBtn.disabled = false;
-            extractPdfplumberBtn.disabled = false;
-            extractOcrBtn.disabled = false;
+            // Enable extraction controls
+            if (confidenceThreshold) confidenceThreshold.disabled = false;
+            if (extractUnifiedBtn) extractUnifiedBtn.disabled = false;
 
             // Enable AI controls if provider is available
             checkAIStatus().then(() => {
@@ -765,17 +771,36 @@ async function uploadFile() {
     }
 }
 
-async function handleExtractNumbers() {
-    const pageNum = parseInt(pageSelectNumbers.value) - 1;
+async function handleExtractUnified() {
+    // Use current page (0-indexed)
+    const pageNum = currentPage;
     const minConf = parseInt(confidenceThreshold.value);
 
-    status.textContent = 'Estrazione numeri avanzata in corso...';
-    extractNumbersBtn.disabled = true;
-    imageContainer.innerHTML = '<p class="loading">Analisi con OCR 0° + 90°...</p>';
+    status.textContent = `Estrazione intelligente pagina ${pageNum + 1} in corso...`;
+    extractUnifiedBtn.disabled = true;
+    imageContainer.innerHTML = '<p class="loading">Rilevamento tipo PDF e estrazione...</p>';
     textList.innerHTML = '<p class="loading">Estrazione...</p>';
 
     try {
-        const response = await fetch('/extract_numbers_advanced', {
+        // If document is loaded from history, reload the PDF file first
+        if (currentDocumentHash && currentDocumentFilePath) {
+            status.textContent = '📂 Ricaricamento PDF dalla cronologia...';
+
+            const reloadResponse = await fetch(`/cache/document/${currentDocumentHash}/reload`, {
+                method: 'POST'
+            });
+
+            const reloadData = await reloadResponse.json();
+            if (!reloadData.success) {
+                status.textContent = `❌ Errore: ${reloadData.error}`;
+                return;
+            }
+
+            console.log('[Extract] PDF reloaded from cache for extraction');
+            status.textContent = `Estrazione intelligente pagina ${pageNum + 1} in corso...`;
+        }
+
+        const response = await fetch('/extract_unified', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({page_num: pageNum, min_conf: minConf})
@@ -786,113 +811,155 @@ async function handleExtractNumbers() {
         if (data.success) {
             currentNumbers = data.numbers;
             currentDisplayData = data.numbers; // Store for download
-            displayImage(data.image);
-            displayNumbersList(data.numbers);
-            numberCount.textContent = `Trovati ${data.count} numeri (${data.count_0deg} orizzontali + ${data.count_90deg} verticali)`;
+
+            // Display image con interattività bidirezionale
+            displayImageWithClickableBoxes(data.image, data.numbers);
+
+            // Display numbers list con interattività bidirezionale
+            displayNumbersListInteractive(data.numbers);
+
+            const methodText = data.extraction_method === 'pdfplumber' ? 'pdfplumber' : 'OCR avanzato';
+            const pageTypeText = data.page_type === 'textual' ? 'PDF Testuale' : 'PDF Rasterizzato';
+
+            numberCount.innerHTML = `
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #5b8fff;">${pageTypeText}</strong> →
+                    <strong style="color: #7bed9f;">${methodText}</strong>
+                </div>
+                <div>
+                    Trovati <strong>${data.count}</strong> numeri
+                    (${data.count_0deg} orizzontali + ${data.count_90deg} verticali)
+                </div>
+            `;
             numberCount.style.display = 'block';
             legend.style.display = 'flex';
 
             // Show download buttons
             document.getElementById('downloadButtons').style.display = 'block';
 
-            status.textContent = `Completato! ${data.count} numeri estratti (soglia ${minConf}%)`;
+            status.textContent = `✓ Completato! ${data.count} numeri estratti con ${methodText}`;
         } else {
             status.textContent = 'Errore: ' + data.error;
         }
     } catch (error) {
         status.textContent = 'Errore: ' + error.message;
     } finally {
-        extractNumbersBtn.disabled = false;
+        extractUnifiedBtn.disabled = false;
     }
 }
 
-async function handleExtractPdfplumber() {
-    const pageNum = parseInt(pageSelectPdfplumber.value) - 1;
-    const rotation = parseInt(rotationSelect.value);
+function displayImageWithClickableBoxes(imageBase64, numbers) {
+    currentPageImage = imageBase64;
+    imageContainer.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+    img.id = 'mainImage';
 
-    status.textContent = 'Estrazione con pdfplumber...';
-    extractPdfplumberBtn.disabled = true;
-    textList.innerHTML = '<p class="loading">Estrazione...</p>';
+    // Add click handler per rettangoli
+    img.addEventListener('click', function(e) {
+        const rect = img.getBoundingClientRect();
+        const scaleX = img.naturalWidth / rect.width;
+        const scaleY = img.naturalHeight / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
 
-    try {
-        const response = await fetch('/extract_pdfplumber', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({page_num: pageNum, rotation: rotation})
+        // Trova il numero cliccato
+        for (const num of numbers) {
+            const bbox = num.bbox;
+            if (x >= bbox.x && x <= bbox.x + bbox.w &&
+                y >= bbox.y && y <= bbox.y + bbox.h) {
+                // Evidenzia il numero nei risultati
+                highlightNumberInResults(num.id);
+                break;
+            }
+        }
+    });
+
+    imageContainer.appendChild(img);
+    zoomControls.style.display = 'flex';
+
+    if (currentPageCount > 1) {
+        pageNavigation.style.display = 'block';
+        updatePageIndicator();
+    }
+
+    applyZoom();
+}
+
+function displayNumbersListInteractive(numbers) {
+    textList.innerHTML = '';
+
+    numbers.forEach(num => {
+        const div = document.createElement('div');
+        div.className = 'number-item';
+        div.id = `number-item-${num.id}`;
+        div.style.cssText = `
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: #2a3356;
+            border-left: 3px solid ${num.rotation === '0deg' ? '#4a90e2' : '#e94b92'};
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        `;
+
+        div.innerHTML = `
+            <div style="font-weight: bold; font-size: 14px;">${num.text}</div>
+            <div style="font-size: 11px; color: #a0aec0; margin-top: 4px;">
+                ${num.rotation === '0deg' ? '→ Orizzontale' : '↑ Verticale'} •
+                Conf: ${num.conf}%
+            </div>
+        `;
+
+        // Click sul risultato → evidenzia sul disegno
+        div.addEventListener('click', () => {
+            highlightNumberOnImage(num.id);
         });
 
-        const data = await response.json();
+        // Hover effects
+        div.addEventListener('mouseenter', () => {
+            div.style.background = '#3d4a70';
+            div.style.transform = 'translateX(5px)';
+        });
 
-        if (data.success) {
-            // Convert PDFPlumber data to downloadable format
-            currentDisplayData = convertPdfplumberToDownloadFormat(data.data, pageNum + 1, rotation);
-            document.getElementById('downloadButtons').style.display = 'block';
+        div.addEventListener('mouseleave', () => {
+            div.style.background = '#2a3356';
+            div.style.transform = 'translateX(0)';
+        });
 
-            let output = `=== Pagina ${pageNum + 1} - Estrazione pdfplumber ===\n\n`;
-            data.data.forEach(item => {
-                output += `Testo: '${item.text}'\n`;
-                output += `  Posizione: (${item.x0.toFixed(2)}, ${item.y0.toFixed(2)}) -> (${item.x1.toFixed(2)}, ${item.y1.toFixed(2)})\n`;
-                output += `  Dimensioni: ${item.width.toFixed(2)} x ${item.height.toFixed(2)}\n\n`;
-            });
-            output += `\nTotale parole estratte: ${data.word_count}\n`;
-            textList.innerHTML = '<pre style="padding: 15px; font-size: 11px; line-height: 1.4;">' + output + '</pre>';
-            status.textContent = `Estratte ${data.word_count} parole con pdfplumber`;
-        } else {
-            status.textContent = 'Errore: ' + data.error;
-        }
-    } catch (error) {
-        status.textContent = 'Errore: ' + error.message;
-    } finally {
-        extractPdfplumberBtn.disabled = false;
+        textList.appendChild(div);
+    });
+}
+
+function highlightNumberInResults(numberId) {
+    // Rimuovi evidenziazioni precedenti
+    document.querySelectorAll('.number-item').forEach(item => {
+        item.style.background = '#2a3356';
+        item.style.transform = 'translateX(0)';
+    });
+
+    // Evidenzia il numero selezionato
+    const item = document.getElementById(`number-item-${numberId}`);
+    if (item) {
+        item.style.background = '#4a5f8f';
+        item.style.transform = 'translateX(10px)';
+        item.scrollIntoView({behavior: 'smooth', block: 'center'});
     }
 }
 
-async function handleExtractOcr() {
-    const pageNum = parseInt(pageSelectOcr.value) - 1;
-    const psmMode = parseInt(psmSelect.value);
-
-    status.textContent = 'Estrazione con OCR...';
-    extractOcrBtn.disabled = true;
-    textList.innerHTML = '<p class="loading">Estrazione...</p>';
-
+async function highlightNumberOnImage(numberId) {
     try {
-        const response = await fetch('/extract_ocr', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({page_num: pageNum, psm_mode: psmMode, rotation: 0})
-        });
-
+        const response = await fetch(`/highlight/${numberId}`);
         const data = await response.json();
 
         if (data.success) {
-            let totalConf = 0;
-            let confCount = 0;
-            data.words.forEach(word => {
-                if (word.conf >= 0) {
-                    totalConf += word.conf;
-                    confCount++;
-                }
-            });
-            const avgConf = confCount > 0 ? (totalConf / confCount).toFixed(1) : 0;
-
-            // Convert OCR data to downloadable format
-            currentDisplayData = convertOcrToDownloadFormat(data.words, data.text, pageNum + 1, psmMode, avgConf);
-            document.getElementById('downloadButtons').style.display = 'block';
-
-            let output = `=== Pagina ${pageNum + 1} - Estrazione OCR (PSM ${psmMode}) ===\n`;
-            output += `Confidenza media: ${avgConf}%\n`;
-            output += `Parole estratte: ${data.word_count}\n\n`;
-            output += '--- TESTO ESTRATTO ---\n\n';
-            output += data.text;
-            textList.innerHTML = '<pre style="padding: 15px; font-size: 11px; line-height: 1.4;">' + output + '</pre>';
-            status.textContent = `Estrazione OCR completa: ${data.word_count} parole, confidenza media ${avgConf}%`;
-        } else {
-            status.textContent = 'Errore: ' + data.error;
+            const img = document.getElementById('mainImage');
+            if (img) {
+                img.src = data.image.startsWith('data:') ? data.image : `data:image/png;base64,${data.image}`;
+            }
         }
     } catch (error) {
-        status.textContent = 'Errore: ' + error.message;
-    } finally {
-        extractOcrBtn.disabled = false;
+        console.error('Errore evidenziazione:', error);
     }
 }
 
@@ -941,6 +1008,14 @@ async function navigateToPage(newPage) {
     textList.innerHTML = '<p class="loading">Caricamento pagina...</p>';
 
     try {
+        // Check if document is loaded from cache
+        if (currentDocumentHash) {
+            // Load page from cache (no extraction, just preview)
+            await loadPageFromCache(currentDocumentHash, newPage + 1);
+
+            return;
+        }
+
         // If we have an extraction method, extract numbers with boxes for the new page
         // Otherwise just load the plain image
         if (currentExtractionMethod && currentExtractionMethod !== 'none') {
@@ -994,12 +1069,7 @@ async function navigateToPage(newPage) {
             }
         }
 
-        // Update page selectors in extraction tabs
-        [pageSelectNumbers, pageSelectPdfplumber, pageSelectOcr].forEach(select => {
-            if (select) {
-                select.value = newPage + 1;
-            }
-        });
+        // Page selectors removed (unified extraction interface)
 
         // Update page indicator
         updatePageIndicator();
@@ -4018,5 +4088,438 @@ function updateTemplateLoadedInfo(templateName) {
         }
     }
 }
+
+
+// ============================================================================
+// DOCUMENT HISTORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Toggle history panel visibility
+ */
+function toggleHistoryPanel() {
+    const historyContent = document.getElementById('historyContent');
+    const toggleIcon = document.getElementById('historyToggleIcon');
+
+    if (historyContent.style.display === 'none') {
+        historyContent.style.display = 'block';
+        toggleIcon.classList.add('open');
+        // Load history when opening
+        loadDocumentHistory();
+    } else {
+        historyContent.style.display = 'none';
+        toggleIcon.classList.remove('open');
+    }
+}
+
+/**
+ * Refresh history (called by refresh button)
+ */
+function refreshHistory(event) {
+    event.stopPropagation(); // Prevent toggle
+    loadDocumentHistory();
+}
+
+/**
+ * Load document history from cache
+ */
+async function loadDocumentHistory() {
+    const historyList = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+
+    try {
+        historyList.innerHTML = '<p class="placeholder">Caricamento...</p>';
+
+        const response = await fetch('/cache/documents');
+        const data = await response.json();
+
+        if (!data.success || !data.documents || data.documents.length === 0) {
+            historyList.innerHTML = '<p class="placeholder">Nessun documento nella cronologia</p>';
+            historyCount.textContent = '0 documenti';
+            return;
+        }
+
+        const documents = data.documents;
+        historyCount.textContent = `${documents.length} documento${documents.length !== 1 ? 'i' : ''}`;
+
+        // Build history list HTML
+        historyList.innerHTML = documents.map(doc => {
+            const filename = doc.filename || 'Senza nome';
+            const filepath = doc.file_path || 'Percorso non disponibile';
+            const pageCount = doc.page_count || 0;
+            const drawingCount = doc.drawing_count || 0;
+            const failedPages = doc.failed_pages || 0;
+            const processingTime = doc.actual_processing_time ? doc.actual_processing_time.toFixed(1) : '?';
+            const createdAt = doc.created_at ? formatDate(doc.created_at) : 'Data sconosciuta';
+
+            // Determine status badges
+            let statusBadges = '';
+            if (drawingCount > 0) {
+                statusBadges += `<span class="history-stat-badge success">✓ ${drawingCount} disegni</span>`;
+            }
+            if (failedPages > 0) {
+                statusBadges += `<span class="history-stat-badge error">⚠ ${failedPages} errori</span>`;
+            }
+
+            return `
+                <div class="history-item" title="${filepath}">
+                    <div class="history-item-main" onclick="loadDocumentFromHistory('${doc.file_hash}')">
+                        <div class="history-item-title">
+                            📄 ${filename}
+                        </div>
+                        <div class="history-item-stats">
+                            <span class="history-stat-badge">📊 ${pageCount} pagine</span>
+                            ${statusBadges}
+                        </div>
+                    </div>
+                    <div class="history-item-meta" onclick="loadDocumentFromHistory('${doc.file_hash}')">
+                        <div class="history-item-date">📅 ${createdAt}</div>
+                        <div class="history-item-time">⏱️ ${processingTime}s</div>
+                    </div>
+                    <button class="history-delete-btn" onclick="deleteDocumentFromHistory(event, '${doc.file_hash}', '${filename}')" title="Elimina da cache">
+                        🗑️ Elimina
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('[History] Error loading document history:', error);
+        historyList.innerHTML = '<p class="placeholder" style="color: #e74c3c;">Errore caricamento cronologia</p>';
+    }
+}
+
+/**
+ * Format date string to readable format
+ */
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Adesso';
+    if (diffMins < 60) return `${diffMins} min fa`;
+    if (diffHours < 24) return `${diffHours} ore fa`;
+    if (diffDays < 7) return `${diffDays} giorni fa`;
+
+    // Format as DD/MM/YYYY HH:MM
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+/**
+ * Filter history list by document name
+ */
+function filterHistory() {
+    const filterInput = document.getElementById('historyFilterInput');
+    const historyList = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+
+    if (!filterInput || !historyList || !historyCount) {
+        console.error('[Filter] Required elements not found');
+        return;
+    }
+
+    const filterText = filterInput.value.toLowerCase().trim();
+    const historyItems = historyList.querySelectorAll('.history-item');
+
+    let visibleCount = 0;
+    const totalCount = historyItems.length;
+
+    historyItems.forEach(item => {
+        const titleElement = item.querySelector('.history-item-title');
+        if (!titleElement) return;
+
+        const filename = titleElement.textContent.toLowerCase();
+
+        if (filterText === '' || filename.includes(filterText)) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Update count display
+    if (filterText === '') {
+        historyCount.textContent = `${totalCount} documento${totalCount !== 1 ? 'i' : ''}`;
+    } else {
+        historyCount.textContent = `${visibleCount} di ${totalCount} documento${totalCount !== 1 ? 'i' : ''}`;
+    }
+
+    console.log(`[Filter] Applied filter "${filterText}": ${visibleCount}/${totalCount} visible`);
+}
+
+// Global variable to store current document hash for page loading
+let currentDocumentHash = null;
+
+/**
+ * Load document from history cache
+ */
+async function loadDocumentFromHistory(fileHash) {
+    console.log(`[History] Loading document from cache: ${fileHash}`);
+
+    try {
+        status.textContent = '📂 Caricamento da cronologia...';
+
+        const response = await fetch(`/cache/document/${fileHash}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            status.textContent = `❌ Errore: ${data.error}`;
+            return;
+        }
+
+        console.log('[History] Document loaded from cache:', data);
+
+        // Store document info
+        currentDocumentHash = fileHash;
+        currentDocumentFilePath = data.file_path;
+        currentPdfFile = null; // No actual file, loaded from cache
+        currentPageCount = data.page_count;
+        currentPage = 0; // Start from first page
+        currentExtractedDimensions = data.dimension_results;
+        currentProviderName = data.provider_name;
+
+        // Update status
+        status.textContent = `✅ ${data.filename} caricato dalla cronologia (${data.processing_time.toFixed(1)}s)`;
+
+        // Load and show first page preview (will also update right panel for page 1)
+        await loadPageFromCache(fileHash, 1);
+
+        // Show zoom controls and page navigation
+        if (zoomControls) zoomControls.style.display = 'flex';
+        if (pageNavigation) {
+            pageNavigation.style.display = 'block';
+            updatePageIndicator();
+        }
+
+        // Enable extraction controls
+        if (confidenceThreshold) confidenceThreshold.disabled = false;
+        if (extractUnifiedBtn) extractUnifiedBtn.disabled = false;
+
+        // Enable AI controls
+        enableAIControls();
+
+        // Show success message
+        if (data.failed_pages && data.failed_pages.length > 0) {
+            alert(`Documento caricato dalla cronologia!\n\n⚠️ Attenzione: ${data.failed_pages.length} pagina/e con errori SAFETY.\nPuoi ricaricare il documento per tentare nuovamente l'estrazione.`);
+        }
+
+    } catch (error) {
+        console.error('[History] Error loading document from history:', error);
+        status.textContent = '❌ Errore caricamento documento';
+    }
+}
+
+/**
+ * Load a specific page from cached document
+ */
+async function loadPageFromCache(fileHash, pageNumber) {
+    console.log('[loadPageFromCache] Loading page:', pageNumber, 'from hash:', fileHash);
+
+    try {
+        const response = await fetch(`/cache/document/${fileHash}/page/${pageNumber}`);
+
+        if (!response.ok) {
+            console.error('[loadPageFromCache] HTTP error:', response.status, response.statusText);
+            imageContainer.innerHTML = `<p class="placeholder" style="color: #e74c3c;">Errore HTTP ${response.status} caricando pagina ${pageNumber}</p>`;
+            textList.innerHTML = `<p class="placeholder" style="color: #e74c3c;">Errore HTTP ${response.status}</p>`;
+            return;
+        }
+
+        const data = await response.json();
+        console.log('[loadPageFromCache] Response data:', data);
+
+        if (!data.success) {
+            console.error(`[History] Error loading page ${pageNumber}:`, data.error);
+            imageContainer.innerHTML = `<p class="placeholder" style="color: #e74c3c;">Errore caricamento pagina ${pageNumber}</p>`;
+            textList.innerHTML = `<p class="placeholder" style="color: #e74c3c;">${data.error || 'Errore sconosciuto'}</p>`;
+            return;
+        }
+
+        // Display page image (no highlighting, just preview)
+        const img = document.createElement('img');
+        img.src = `data:image/png;base64,${data.page_image}`;
+        img.style.width = `${currentZoom}%`;
+        img.id = 'mainImage';
+
+        imageContainer.innerHTML = '';
+        imageContainer.appendChild(img);
+
+        currentPage = pageNumber - 1; // Store 0-indexed page
+        updatePageIndicator();
+
+        // Update right panel to show dimensions for this specific page
+        console.log('[loadPageFromCache] About to display dimensions for page:', pageNumber);
+        displayDimensionResultsForPage(pageNumber);
+        console.log('[loadPageFromCache] Dimensions displayed successfully');
+
+    } catch (error) {
+        console.error('[History] Error loading page from cache:', error);
+        console.error('[History] Error stack:', error.stack);
+        imageContainer.innerHTML = `<p class="placeholder" style="color: #e74c3c;">Errore: ${error.message}</p>`;
+        textList.innerHTML = `<p class="placeholder" style="color: #e74c3c;">Errore di connessione: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Display dimension results for a specific page only
+ */
+function displayDimensionResultsForPage(pageNumber) {
+    console.log('[displayDimensionResultsForPage] Called for page:', pageNumber);
+    console.log('[displayDimensionResultsForPage] currentExtractedDimensions:', currentExtractedDimensions);
+
+    const textList = document.getElementById('textList');
+    const numberCount = document.getElementById('numberCount');
+
+    if (!currentExtractedDimensions) {
+        console.log('[displayDimensionResultsForPage] No dimensions available');
+        textList.innerHTML = '<p class="placeholder">Nessuna dimensione estratta</p>';
+        numberCount.style.display = 'none';
+        return;
+    }
+
+    // Get dimensions for this specific page
+    const pageDimensions = currentExtractedDimensions[pageNumber];
+    console.log('[displayDimensionResultsForPage] Page dimensions for page', pageNumber, ':', pageDimensions);
+
+    if (!pageDimensions) {
+        textList.innerHTML = '<p class="placeholder">Nessuna dimensione per questa pagina</p>';
+        numberCount.innerHTML = `<strong>Pagina ${pageNumber}</strong> - Nessuna dimensione estratta`;
+        numberCount.style.display = 'block';
+        return;
+    }
+
+    // Display dimensions for this page
+    let html = `
+        <div class="ai-result">
+            <h3>Pagina ${pageNumber}</h3>
+            <pre>${pageDimensions}</pre>
+        </div>
+    `;
+
+    textList.innerHTML = html;
+
+    // Show count
+    numberCount.innerHTML = `<strong>Pagina ${pageNumber}</strong> - Dimensioni estratte`;
+    numberCount.style.display = 'block';
+}
+
+/**
+ * Update page indicator
+ */
+function updatePageIndicator() {
+    if (pageIndicator) {
+        pageIndicator.textContent = `${currentPage + 1} / ${currentPageCount}`;
+    }
+}
+
+/**
+ * Display dimension results in right panel
+ */
+function displayDimensionResults(dimensionResults, failedPages = []) {
+    const textList = document.getElementById('textList');
+    const numberCount = document.getElementById('numberCount');
+
+    if (!dimensionResults || Object.keys(dimensionResults).length === 0) {
+        textList.innerHTML = '<p class="placeholder">Nessuna dimensione estratta</p>';
+        numberCount.style.display = 'none';
+        return;
+    }
+
+    // Build HTML for each page's dimensions
+    let html = '';
+    const totalPages = Object.keys(dimensionResults).length;
+
+    Object.keys(dimensionResults).sort((a, b) => parseInt(a) - parseInt(b)).forEach(pageNum => {
+        const dimensions = dimensionResults[pageNum];
+        const isFailed = failedPages.includes(parseInt(pageNum));
+
+        html += `
+            <div class="ai-result">
+                <h3>Pagina ${pageNum}${isFailed ? ' ⚠️ ERRORE' : ''}</h3>
+                <pre>${dimensions || 'Nessuna dimensione'}</pre>
+            </div>
+        `;
+    });
+
+    textList.innerHTML = html;
+
+    // Show count
+    numberCount.innerHTML = `<strong>${totalPages}</strong> pagina/e con dimensioni estratte`;
+    numberCount.style.display = 'block';
+}
+
+/**
+ * Enable AI controls after loading document
+ */
+function enableAIControls() {
+    if (analyzeBtn) analyzeBtn.disabled = false;
+    if (visionBtn) visionBtn.disabled = false;
+    if (askBtn) askBtn.disabled = false;
+    if (summarizeBtn) summarizeBtn.disabled = false;
+    if (questionInput) questionInput.disabled = false;
+}
+
+/**
+ * Delete document from history cache
+ */
+async function deleteDocumentFromHistory(event, fileHash, filename) {
+    // Prevent event from bubbling to parent (which would load the document)
+    event.stopPropagation();
+
+    // Confirm deletion
+    const confirmDelete = confirm(
+        `Vuoi eliminare il documento "${filename}" dalla cronologia?\n\n` +
+        `⚠️ ATTENZIONE: Questa operazione cancellerà tutti i dati memorizzati nella cache per questo documento.\n\n` +
+        `Il documento dovrà essere ricaricato e analizzato da zero al prossimo caricamento.`
+    );
+
+    if (!confirmDelete) {
+        return;
+    }
+
+    console.log(`[History] Deleting document from cache: ${fileHash}`);
+
+    try {
+        const response = await fetch(`/cache/document/${fileHash}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            alert(`Errore durante l'eliminazione: ${data.error}`);
+            return;
+        }
+
+        console.log('[History] Document deleted successfully');
+
+        // Show success message
+        alert(`✅ Documento "${filename}" eliminato dalla cache.\n\nAl prossimo caricamento verrà analizzato da zero.`);
+
+        // Reload history to update the list
+        loadDocumentHistory();
+
+    } catch (error) {
+        console.error('[History] Error deleting document:', error);
+        alert('Errore durante l\'eliminazione del documento dalla cache.');
+    }
+}
+
+// Load history on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Load history in background
+    loadDocumentHistory();
+});
 
 

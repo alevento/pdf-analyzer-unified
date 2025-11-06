@@ -28,6 +28,7 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 import uuid
 from ai_providers import AIProviderManager
+from document_cache import DocumentCache
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,6 +55,21 @@ os.makedirs(app.config['LAYOUT_PROMPTS_FOLDER'], exist_ok=True)
 # Configure AI Provider Manager
 DEMO_MODE = os.environ.get('DEMO_MODE', 'false').lower() == 'true'
 ai_manager = AIProviderManager()
+
+# Initialize Document Cache Manager
+doc_cache = DocumentCache()
+print("[Cache] Document cache initialized")
+
+# Global upload status tracking
+upload_status = {
+    'status': 'idle',  # idle, uploading, extracting, analyzing, retry, complete
+    'message': '',
+    'page': 0,
+    'total_pages': 0,
+    'retry_attempt': 0,
+    'temperature': 0.0,
+    'from_cache': False
+}
 
 # Keep backward compatibility with legacy code
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -1041,6 +1057,106 @@ def extract_numbers_advanced(image, min_conf=60):
     return all_numbers, numbers_from_0_filtered, numbers_from_90_filtered
 
 
+def extract_numbers_from_pdfplumber(pdf_path, page_num=0):
+    """
+    Estrae numeri da PDF testuale usando pdfplumber
+    Raggruppa numeri adiacenti per formare valori completi
+    Restituisce formato compatibile con OCR per visualizzazione unificata
+    """
+    import re
+
+    processor = PDFProcessor(pdf_path)
+
+    # Estrai tutte le parole con coordinate
+    words = processor.extract_with_pdfplumber(page_num=page_num)
+
+    if not words:
+        return [], [], []
+
+    # Filtra solo le parole che contengono numeri
+    number_words = []
+    for word in words:
+        text = word['text']
+        # Cerca pattern numerici (numeri con o senza decimali, unità di misura, etc)
+        if re.search(r'\d', text):
+            number_words.append(word)
+
+    # Converti coordinate pdfplumber in formato pixel per immagine
+    # Ottieni dimensioni pagina
+    with pdfplumber.open(pdf_path) as pdf:
+        page = pdf.pages[page_num]
+        page_width = page.width
+        page_height = page.height
+
+    # Genera immagine per ottenere dimensioni in pixel
+    doc = fitz.open(pdf_path)
+    pdf_page = doc[page_num]
+    zoom = 300 / 72  # DPI 300
+    mat = fitz.Matrix(zoom, zoom)
+    pix = pdf_page.get_pixmap(matrix=mat)
+    img_width = pix.width
+    img_height = pix.height
+    doc.close()
+
+    # Fattori di scala
+    scale_x = img_width / page_width
+    scale_y = img_height / page_height
+
+    # Converti a formato unificato
+    all_numbers = []
+    numbers_horizontal = []  # Numeri orizzontali
+
+    for idx, word in enumerate(number_words):
+        # Converti coordinate da punti PDF a pixel immagine
+        x0 = int(word['x0'] * scale_x)
+        y0 = int(word['y0'] * scale_y)
+        x1 = int(word['x1'] * scale_x)
+        y1 = int(word['y1'] * scale_y)
+
+        result = {
+            'id': idx,
+            'text': word['text'],
+            'conf': 100,  # pdfplumber ha sempre alta confidenza
+            'bbox': {
+                'x': x0,
+                'y': y0,
+                'width': x1 - x0,
+                'height': y1 - y0
+            },
+            'rotation': '0deg',  # PDFplumber estrae sempre orizzontalmente
+            'source': 'pdfplumber'
+        }
+
+        all_numbers.append(result)
+        numbers_horizontal.append(result)
+
+    print(f"[PDFplumber] Estratti {len(all_numbers)} numeri dalla pagina {page_num + 1}")
+
+    return all_numbers, numbers_horizontal, []
+
+
+def detect_page_type(pdf_path, page_num=0):
+    """
+    Rileva se una pagina specifica è testuale o richiede OCR
+    Returns: 'textual' or 'image'
+    """
+    doc = fitz.open(pdf_path)
+
+    if page_num >= len(doc):
+        doc.close()
+        return 'image'
+
+    page = doc[page_num]
+    text = page.get_text().strip()
+    doc.close()
+
+    # Se ha più di 100 caratteri di testo, consideralo testuale
+    if len(text) > 100:
+        return 'textual'
+    else:
+        return 'image'
+
+
 def parse_ocr_data(ocr_data, min_conf=30):
     """Parse OCR data and return list of results"""
     results = []
@@ -1398,6 +1514,67 @@ Rispondi in italiano, citando i dati specifici dal documento quando possibile.""
         return {'error': f'Error calling AI provider ({provider.get_name()}): {str(e)}'}
 
 
+def is_valid_technical_drawing(dimensions_text):
+    """
+    Check if the AI response contains valid technical drawing dimensions
+    Returns False if the response indicates it's not a technical drawing
+    """
+    if not dimensions_text:
+        return False
+
+    # Convert to lowercase for case-insensitive matching
+    text_lower = dimensions_text.lower()
+
+    # Patterns that indicate the page is NOT a valid technical drawing
+    invalid_patterns = [
+        "non è un disegno tecnico",
+        "non è un disegno",
+        "non contiene dimensioni",
+        "material data sheet",
+        "scheda dati",
+        "non presenta dimensioni",
+        "non sono presenti dimensioni",
+        "impossibile estrarre dimensioni",
+        "l'immagine fornita non è",
+        "il documento fornito non è",
+        "il documento fornito è",
+        "non posso fornire dimensioni",
+        "pagina vuota",
+        "copertina",
+        "frontespizio",
+        "indice",
+        "sommario"
+    ]
+
+    # Check if any invalid pattern is present
+    for pattern in invalid_patterns:
+        if pattern in text_lower:
+            return False
+
+    # Additional validation: check if there are actual dimension patterns
+    # Look for patterns like: 123x456, 123 x 456, 123mm, etc.
+    import re
+    dimension_patterns = [
+        r'\d+\s*x\s*\d+',  # 123x456 or 123 x 456
+        r'\d+\s*mm',       # 123mm or 123 mm
+        r'\d+\s*cm',       # 123cm or 123 cm
+        r'\d+\.\d+',       # 123.45 (decimal numbers)
+        r'∅\s*\d+',        # ∅123 (diameter symbol)
+        r'Ø\s*\d+'         # Ø123 (alternative diameter)
+    ]
+
+    for pattern in dimension_patterns:
+        if re.search(pattern, dimensions_text):
+            return True
+
+    # If no dimension patterns found and text is long (explanatory), mark as invalid
+    if len(dimensions_text) > 100:
+        return False
+
+    # Default to True for short responses (might be dimension values)
+    return True
+
+
 def summarize_document(full_text, extracted_data, pdf_type):
     """
     Feature 4: Automatic document summarization
@@ -1491,6 +1668,15 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    # Reset upload status
+    upload_status['status'] = 'uploading'
+    upload_status['message'] = 'Upload documento...'
+    upload_status['page'] = 0
+    upload_status['total_pages'] = 0
+    upload_status['retry_attempt'] = 0
+    upload_status['temperature'] = 0.0
+    upload_status['from_cache'] = False
+
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -1501,8 +1687,245 @@ def upload_file():
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
-        file.save(filepath)
+
+        # Save to temporary current.pdf first
+        temp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        file.save(temp_filepath)
+
+        # Calculate file hash for caching
+        file_hash = doc_cache.calculate_file_hash(temp_filepath)
+
+        # Save permanent copy with hash-based filename
+        import shutil
+        permanent_filename = f"{file_hash}.pdf"
+        permanent_filepath = os.path.join(app.config['UPLOAD_FOLDER'], permanent_filename)
+
+        # Copy to permanent location if not already there
+        if not os.path.exists(permanent_filepath):
+            shutil.copy2(temp_filepath, permanent_filepath)
+            print(f"[Upload] Saved permanent copy: {permanent_filename}")
+
+        # Use current.pdf for processing (for compatibility)
+        filepath = temp_filepath
+
+        # Check if document is already in cache
+        cached_doc = doc_cache.get_document(file_hash)
+        if cached_doc:
+            print(f"[Cache HIT] Document found in cache: {filename}")
+
+            # Get cached page dimensions
+            doc_id = cached_doc['id']
+            cached_pages = doc_cache.get_page_dimensions(doc_id)
+            cached_layout = doc_cache.get_layout_analysis(doc_id)
+
+            # Reconstruct response from cache
+            # Still need to generate page_image for display
+            processor = PDFProcessor(filepath)
+            pdf_type, pages_info = processor.detect_pdf_type()
+            page_count = processor.get_page_count()
+
+            # Get first page image
+            image = processor.get_page_as_pil(page_num=0, dpi=300)
+            original_path = os.path.join(app.config['UPLOAD_FOLDER'], 'original.png')
+            image.save(original_path)
+
+            # Reconstruct extraction based on PDF type
+            if pdf_type in ['textual', 'hybrid']:
+                full_text = processor.get_full_text_pdfplumber()
+                all_numbers = extract_numbers_from_pdfplumber(filepath, page_num=0)
+                img_with_boxes = draw_pdfplumber_boxes(image, 300, all_numbers)
+                page_image = image_to_base64(img_with_boxes)
+                extraction_method = 'pdfplumber'
+
+                # Save results
+                results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+                with open(results_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'all_numbers': all_numbers,
+                        'extraction_method': 'pdfplumber'
+                    }, f, ensure_ascii=False, indent=2)
+
+                type_counts = {}
+                for num in all_numbers:
+                    t = num.get('type', 'number')
+                    type_counts[t] = type_counts.get(t, 0) + 1
+            else:
+                full_text = "PDF rasterizzato - usa OCR avanzato per l'estrazione"
+                all_numbers, numbers_0deg, numbers_90deg = extract_numbers_advanced(image, min_conf=60)
+                img_with_boxes = draw_unified_boxes(image, numbers_0deg, numbers_90deg)
+                page_image = image_to_base64(img_with_boxes)
+                extraction_method = 'ocr'
+
+                # Save results
+                results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+                with open(results_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'all_numbers': all_numbers,
+                        'numbers_0deg': numbers_0deg,
+                        'numbers_90deg': numbers_90deg,
+                        'extraction_method': 'ocr'
+                    }, f, ensure_ascii=False, indent=2)
+
+                type_counts = {
+                    '0deg': len(numbers_0deg),
+                    '90deg': len(numbers_90deg)
+                }
+
+            # Reconstruct dimensions_extraction from cached data
+            dimensions_extraction = None
+            auto_dimensions_executed = False
+            if cached_pages:
+                # Check for failed pages that need retry
+                failed_pages = [p for p in cached_pages if not p['success']]
+
+                if failed_pages and page_count > 1:
+                    print(f"[Cache] Found {len(failed_pages)} failed page(s), retrying with increased temperature...")
+
+                    # Get default dimension prompt for retry
+                    dimension_prompts_file = os.path.join(app.config['DIMENSION_PROMPTS_FOLDER'], 'dimension_prompts.json')
+                    default_dim_prompt = None
+
+                    if os.path.exists(dimension_prompts_file):
+                        try:
+                            with open(dimension_prompts_file, 'r', encoding='utf-8') as f:
+                                dimension_data = json.load(f)
+
+                            # Find default prompt
+                            for prompt in dimension_data.get('prompts', []):
+                                if prompt.get('is_default', False):
+                                    default_dim_prompt = prompt
+                                    break
+
+                            if not default_dim_prompt:
+                                print(f"[Cache] WARNING: No default dimension prompt found in {dimension_prompts_file}")
+                        except Exception as e:
+                            print(f"[Cache] ERROR reading dimension prompts: {str(e)}")
+                    else:
+                        print(f"[Cache] WARNING: Dimension prompts file not found: {dimension_prompts_file}")
+
+                    if default_dim_prompt:
+                        print(f"[Cache] Using prompt '{default_dim_prompt['name']}' for retry")
+                        current_provider = ai_manager.get_current_provider()
+                        provider_name = ai_manager.get_current_provider_name()
+
+                        # Retry each failed page with progressively higher temperature
+                        for page_data in failed_pages:
+                            page_num = page_data['page_number'] - 1  # Convert to 0-indexed
+                            print(f"[Cache Retry] Attempting page {page_data['page_number']} (previously failed)")
+
+                            # Update global status
+                            upload_status['status'] = 'retry'
+                            upload_status['page'] = page_data['page_number']
+                            upload_status['total_pages'] = page_count
+                            upload_status['message'] = f"Retry pagina {page_data['page_number']} (errore SAFETY)"
+                            upload_status['from_cache'] = True
+
+                            # Get page image
+                            page_image_b64 = processor.get_page_image(page_num=page_num)
+
+                            # Start with higher temperature since normal already failed
+                            dimensions_text = None
+                            for attempt_num, increment in enumerate([0.2, 0.3, 0.4, 0.5, 0.6], 1):
+                                print(f"  [Cache Retry] Page {page_data['page_number']} with temperature +{increment}...")
+
+                                # Update status with attempt info
+                                upload_status['retry_attempt'] = attempt_num
+                                upload_status['temperature'] = increment
+                                upload_status['message'] = f"Retry pagina {page_data['page_number']}: tentativo {attempt_num}/5 (temp +{increment})"
+
+                                retry_result = retry_vision_with_increased_temperature(
+                                    current_provider,
+                                    default_dim_prompt['content'],
+                                    page_image_b64,
+                                    provider_name,
+                                    increment
+                                )
+                                if retry_result:
+                                    dimensions_text = retry_result
+                                    print(f"  [Cache Retry SUCCESS] Page {page_data['page_number']} with temperature +{increment}")
+
+                                    # Update database with successful result
+                                    doc_cache.save_page_dimension(
+                                        document_id=doc_id,
+                                        page_number=page_data['page_number'],
+                                        dimensions_text=dimensions_text,
+                                        retry_count=page_data.get('retry_count', 0) + 1,
+                                        final_temperature=increment,
+                                        success=True
+                                    )
+
+                                    # Update cached_pages data
+                                    page_data['dimensions_text'] = dimensions_text
+                                    page_data['success'] = True
+                                    page_data['error'] = None
+                                    break
+
+                            if not dimensions_text:
+                                print(f"  [Cache Retry FAILED] All retry attempts failed for page {page_data['page_number']}")
+
+                # Build results from updated cached_pages
+                results = []
+                for page_data in cached_pages:
+                    if page_data['success']:
+                        results.append({
+                            'page': page_data['page_number'],
+                            'dimensions': page_data['dimensions_text']
+                        })
+                    else:
+                        results.append({
+                            'page': page_data['page_number'],
+                            'error': page_data['error']
+                        })
+
+                dimensions_extraction = {
+                    'prompt_name': 'default',
+                    'prompt_id': 'default',
+                    'provider': cached_doc['provider_name'],
+                    'results': results
+                }
+                auto_dimensions_executed = True
+
+            # Reconstruct layout_analysis from cached data
+            layout_analysis = None
+            auto_layout_executed = False
+            if cached_layout:
+                layout_analysis = {
+                    'analysis': cached_layout['analysis_text'],
+                    'provider': cached_layout['provider_name'],
+                    'prompt_name': cached_layout['prompt_name']
+                }
+                auto_layout_executed = True
+
+            print(f"[Cache] Returning cached results (estimated time saved: {cached_doc.get('actual_processing_time', 0):.1f}s)")
+
+            # Mark upload as complete
+            upload_status['status'] = 'complete'
+            upload_status['message'] = 'Elaborazione completata (da cache)'
+
+            return jsonify({
+                'success': True,
+                'pdf_type': pdf_type,
+                'page_count': page_count,
+                'pages_info': pages_info,
+                'full_text': full_text,
+                'page_image': page_image,
+                'has_numbers': True,
+                'numbers': all_numbers,
+                'numbers_count': len(all_numbers),
+                'extraction_method': extraction_method,
+                'type_counts': type_counts,
+                'auto_layout_executed': auto_layout_executed,
+                'layout_analysis': layout_analysis,
+                'auto_dimensions_executed': auto_dimensions_executed,
+                'dimensions_extraction': dimensions_extraction,
+                'from_cache': True
+            })
+
+        print(f"[Cache MISS] Processing new document: {filename}")
+
+        # Track processing time
+        import time
+        start_time = time.time()
 
         processor = PDFProcessor(filepath)
         pdf_type, pages_info = processor.detect_pdf_type()
@@ -1754,6 +2177,106 @@ def upload_file():
                 print(f"Errore durante auto-estrazione dimensioni: {traceback.format_exc()}")
                 # Non bloccare l'upload se l'estrazione dimensioni fallisce
 
+        # Calculate processing time
+        processing_time = time.time() - start_time
+
+        # Save to cache
+        try:
+            # Save document info
+            provider_name = None
+            if auto_dimensions_executed and dimensions_extraction:
+                provider_name = dimensions_extraction.get('provider')
+            elif auto_layout_executed and layout_analysis:
+                provider_name = layout_analysis.get('provider')
+
+            # Build structured analysis data
+            analysis_data = {
+                'pdf_type': pdf_type,
+                'extraction_method': extraction_method,
+                'page_count': page_count,
+                'processing_time': processing_time
+            }
+
+            # Add layout analysis if executed
+            if auto_layout_executed and layout_analysis:
+                analysis_data['layout_analysis'] = {
+                    'prompt_name': layout_analysis.get('prompt_name'),
+                    'prompt_id': layout_analysis.get('prompt_id'),
+                    'provider': layout_analysis.get('provider'),
+                    'analysis': layout_analysis.get('analysis'),
+                    'error': layout_analysis.get('error')
+                }
+
+            # Add dimensions extraction if executed
+            if auto_dimensions_executed and dimensions_extraction:
+                dim_data = {
+                    'prompt_name': dimensions_extraction.get('prompt_name'),
+                    'prompt_id': dimensions_extraction.get('prompt_id'),
+                    'provider': dimensions_extraction.get('provider'),
+                    'results_per_page': {}
+                }
+
+                # Organize results by page
+                for result in dimensions_extraction.get('results', []):
+                    page_num = result['page']
+                    dim_data['results_per_page'][str(page_num)] = {
+                        'dimensions_text': result.get('dimensions'),
+                        'error': result.get('error'),
+                        'success': 'error' not in result
+                    }
+
+                analysis_data['dimensions_extraction'] = dim_data
+
+            doc_id = doc_cache.save_document(
+                file_hash=file_hash,
+                filename=filename,
+                file_path=permanent_filepath,
+                page_count=page_count,
+                actual_processing_time=processing_time,
+                provider_name=provider_name,
+                analysis_data=analysis_data
+            )
+
+            # Save page dimensions if auto-extracted
+            if auto_dimensions_executed and dimensions_extraction:
+                for result in dimensions_extraction['results']:
+                    page_num = result['page']
+                    if 'error' in result:
+                        # Failed extraction (SAFETY error or technical error)
+                        doc_cache.save_page_dimension(
+                            document_id=doc_id,
+                            page_number=page_num,
+                            error=result['error'],
+                            success=False
+                        )
+                    else:
+                        # Successful extraction (AI responded, regardless of content)
+                        # success=True means NO SAFETY/technical error
+                        doc_cache.save_page_dimension(
+                            document_id=doc_id,
+                            page_number=page_num,
+                            dimensions_text=result['dimensions'],
+                            success=True
+                        )
+
+            # Save layout analysis if auto-executed
+            if auto_layout_executed and layout_analysis:
+                doc_cache.save_layout_analysis(
+                    document_id=doc_id,
+                    analysis_text=layout_analysis['analysis'],
+                    provider_name=layout_analysis['provider'],
+                    prompt_name=layout_analysis.get('prompt_name', 'default')
+                )
+
+            print(f"[Cache] Document saved to cache (processing time: {processing_time:.1f}s)")
+        except Exception as e:
+            print(f"[Cache] Error saving to cache: {str(e)}")
+            # Don't fail upload if cache save fails
+
+        # Mark upload as complete
+        upload_status['status'] = 'complete'
+        upload_status['message'] = 'Elaborazione completata'
+
         return jsonify({
             'success': True,
             'pdf_type': pdf_type,
@@ -1913,6 +2436,82 @@ def extract_numbers_advanced_route():
         'count_0deg': len(numbers_0deg),
         'count_90deg': len(numbers_90deg),
         'image': img_base64
+    })
+
+
+@app.route('/extract_unified', methods=['POST'])
+def extract_unified():
+    """
+    Estrazione unificata intelligente:
+    - Rileva automaticamente se il PDF è testuale o immagine
+    - Usa pdfplumber per PDF testuali
+    - Usa OCR per PDF rasterizzati
+    - Evidenzia numeri completi (non cifre singole)
+    - Supporta interattività bidirezionale
+    """
+    data = request.json
+    page_num = data.get('page_num', 0)
+    min_conf = data.get('min_conf', 60)
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'No PDF loaded'}), 400
+
+    # Rileva tipo di pagina
+    page_type = detect_page_type(filepath, page_num)
+    print(f"[Unified] Pagina {page_num + 1} rilevata come: {page_type}")
+
+    processor = PDFProcessor(filepath)
+
+    if page_type == 'textual':
+        # Usa pdfplumber per PDF testuali
+        print("[Unified] Usando pdfplumber per estrazione...")
+        all_numbers, numbers_0deg, numbers_90deg = extract_numbers_from_pdfplumber(filepath, page_num)
+        extraction_method = 'pdfplumber'
+
+        # Carica l'immagine della pagina
+        image = processor.get_page_as_pil(page_num=page_num, dpi=300)
+        if not image:
+            return jsonify({'error': 'Could not load page'}), 500
+
+    else:
+        # Usa OCR per PDF rasterizzati
+        print("[Unified] Usando OCR per estrazione...")
+        image = processor.get_page_as_pil(page_num=page_num, dpi=300)
+        if not image:
+            return jsonify({'error': 'Could not load page'}), 500
+
+        # Extract numbers with advanced processing
+        all_numbers, numbers_0deg, numbers_90deg = extract_numbers_advanced(image, min_conf=min_conf)
+        extraction_method = 'ocr'
+
+    # Salva l'immagine originale per future operazioni
+    original_path = os.path.join(app.config['UPLOAD_FOLDER'], 'original.png')
+    image.save(original_path)
+
+    # Draw unified boxes on image
+    img_with_boxes = draw_unified_boxes(image, numbers_0deg, numbers_90deg)
+    img_base64 = image_to_base64(img_with_boxes)
+
+    # Salva i risultati per la route highlight
+    results_path = os.path.join(app.config['UPLOAD_FOLDER'], 'ocr_results.json')
+    with open(results_path, 'w', encoding='utf-8') as f:
+        json.dump({
+            'all_numbers': all_numbers,
+            'numbers_0deg': numbers_0deg,
+            'numbers_90deg': numbers_90deg,
+            'extraction_method': extraction_method
+        }, f, ensure_ascii=False, indent=2)
+
+    return jsonify({
+        'success': True,
+        'numbers': all_numbers,
+        'count': len(all_numbers),
+        'count_0deg': len(numbers_0deg),
+        'count_90deg': len(numbers_90deg),
+        'image': img_base64,
+        'extraction_method': extraction_method,
+        'page_type': page_type
     })
 
 
@@ -2181,6 +2780,257 @@ def ai_status():
             'provider': None,
             'message': 'Nessun provider AI configurato. Aggiungi API keys al file .env'
         })
+
+
+@app.route('/upload_status')
+def get_upload_status():
+    """Get current upload/processing status"""
+    return jsonify(upload_status)
+
+
+@app.route('/cache/documents')
+def get_cached_documents():
+    """Get list of all cached documents with statistics"""
+    try:
+        documents = doc_cache.get_all_documents()
+        return jsonify({
+            'success': True,
+            'documents': documents
+        })
+    except Exception as e:
+        print(f"[Cache] Error getting documents list: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/cache/document/<file_hash>')
+def load_cached_document(file_hash):
+    """Load a specific document from cache by file hash"""
+    try:
+        # Get document from cache
+        cached_doc = doc_cache.get_document(file_hash)
+        if not cached_doc:
+            return jsonify({
+                'success': False,
+                'error': 'Document not found in cache'
+            }), 404
+
+        doc_id = cached_doc['id']
+        filename = cached_doc['filename']
+        page_count = cached_doc['page_count']
+
+        print(f"[Cache] Loading document from cache: {filename}")
+
+        # Get all cached data
+        cached_pages = doc_cache.get_page_dimensions(doc_id)
+        cached_layout = doc_cache.get_layout_analysis(doc_id)
+
+        # Reconstruct dimension results (only valid technical drawings)
+        dimension_results = {}
+        failed_pages = []
+
+        for page_data in cached_pages:
+            page_num = page_data['page_number']
+            dimensions_text = page_data['dimensions_text']
+
+            if page_data['success']:
+                # Check if it's a valid technical drawing
+                if dimensions_text and doc_cache._is_valid_technical_drawing(dimensions_text):
+                    dimension_results[page_num] = dimensions_text
+                else:
+                    # AI responded but it's not a technical drawing (e.g., "non è un disegno tecnico")
+                    print(f"[Cache] Page {page_num} excluded - not a valid technical drawing")
+            else:
+                failed_pages.append(page_num)
+
+        # Prepare response similar to upload response
+        response_data = {
+            'success': True,
+            'from_cache': True,
+            'filename': filename,
+            'file_path': cached_doc.get('file_path'),
+            'file_hash': file_hash,
+            'page_count': page_count,
+            'processing_time': cached_doc.get('actual_processing_time', 0),
+            'dimension_results': dimension_results,
+            'failed_pages': failed_pages,
+            'provider_name': cached_doc.get('provider_name', 'Unknown')
+        }
+
+        # Add layout analysis if available
+        if cached_layout:
+            response_data['layout_analysis'] = {
+                'text': cached_layout['analysis_text'],
+                'provider': cached_layout['provider_name'],
+                'prompt': cached_layout['prompt_name']
+            }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        import traceback
+        print(f"[Cache] Error loading document: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/cache/document/<file_hash>/page/<int:page_number>')
+def get_cached_document_page(file_hash, page_number):
+    """Get a specific page image from a cached document"""
+    try:
+        # Get document from cache
+        cached_doc = doc_cache.get_document(file_hash)
+        if not cached_doc:
+            return jsonify({
+                'success': False,
+                'error': 'Document not found in cache'
+            }), 404
+
+        # Get file path
+        file_path = cached_doc.get('file_path')
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({
+                'success': False,
+                'error': 'PDF file not found on disk'
+            }), 404
+
+        # Load PDF and get page image
+        processor = PDFProcessor(file_path)
+        page_image = processor.get_page_image(page_num=page_number - 1)  # 0-indexed
+
+        if not page_image:
+            return jsonify({
+                'success': False,
+                'error': f'Could not load page {page_number}'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'page_image': page_image,
+            'page_number': page_number
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[Cache] Error getting page image: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/cache/document/<file_hash>/reload', methods=['POST'])
+def reload_cached_document_for_extraction(file_hash):
+    """Reload cached document PDF file to enable extraction"""
+    try:
+        import shutil
+
+        cached_doc = doc_cache.get_document(file_hash)
+        if not cached_doc:
+            return jsonify({'success': False, 'error': 'Document not found'}), 404
+
+        file_path = cached_doc.get('file_path')
+        if not file_path:
+            return jsonify({'success': False, 'error': 'No file path stored in cache'}), 404
+
+        # Normalize paths for comparison (handle forward/backward slashes)
+        current_path = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        normalized_file_path = os.path.normpath(file_path)
+        normalized_current_path = os.path.normpath(current_path)
+
+        # Check if source and destination are the same file
+        if os.path.abspath(normalized_file_path) == os.path.abspath(normalized_current_path):
+            print(f"[Cache] File already loaded as current.pdf: {cached_doc['filename']}")
+            # File is already current.pdf, no need to copy
+            return jsonify({
+                'success': True,
+                'filename': cached_doc['filename'],
+                'page_count': cached_doc['page_count'],
+                'already_loaded': True
+            })
+
+        # Check if source file exists
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'PDF file not found in cache'}), 404
+
+        # Copy PDF to current.pdf for extraction
+        shutil.copy2(file_path, current_path)
+
+        print(f"[Cache] Reloaded PDF for extraction: {cached_doc['filename']}")
+
+        return jsonify({
+            'success': True,
+            'filename': cached_doc['filename'],
+            'page_count': cached_doc['page_count']
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[Cache] Error reloading document: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/document/<file_hash>/analysis')
+def get_document_analysis(file_hash):
+    """Get structured analysis data for a document"""
+    try:
+        analysis_data = doc_cache.get_analysis_data(file_hash)
+
+        if not analysis_data:
+            return jsonify({
+                'success': False,
+                'error': 'No analysis data found for this document'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'file_hash': file_hash,
+            'analysis': analysis_data
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[API] Error retrieving analysis data: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/cache/document/<file_hash>', methods=['DELETE'])
+def delete_cached_document(file_hash):
+    """Delete a specific document from cache by file hash"""
+    try:
+        # Get document info before deleting (for logging)
+        cached_doc = doc_cache.get_document(file_hash)
+        if not cached_doc:
+            return jsonify({
+                'success': False,
+                'error': 'Document not found in cache'
+            }), 404
+
+        filename = cached_doc['filename']
+        print(f"[Cache] Deleting document from cache: {filename}")
+
+        # Delete document and all associated data
+        doc_cache.delete_document(file_hash)
+
+        return jsonify({
+            'success': True,
+            'message': f'Document {filename} deleted from cache'
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[Cache] Error deleting document: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/download_results/<format>', methods=['POST'])
@@ -3637,6 +4487,72 @@ def extract_dimensions_with_context():
                 return jsonify({'error': f'{provider_name} timeout: Richiesta troppo lunga, riprova o usa un altro provider'}), 500
 
         return jsonify({'error': f'Error calling {provider_name}: {error_message}'}), 500
+
+
+# ===== CACHE MANAGEMENT ENDPOINTS =====
+
+@app.route('/api/cache/stats')
+def get_cache_stats():
+    """Get cache statistics"""
+    try:
+        stats = doc_cache.get_cache_stats()
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+    except Exception as e:
+        print(f"Error getting cache stats: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cache/document/<file_hash>', methods=['DELETE'])
+def clear_document_cache(file_hash):
+    """Clear cache for specific document"""
+    try:
+        doc_cache.delete_document(file_hash)
+        return jsonify({
+            'success': True,
+            'message': 'Document cache cleared'
+        })
+    except Exception as e:
+        print(f"Error clearing document cache: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cache/clear_all', methods=['POST'])
+def clear_all_cache():
+    """Clear all cached documents"""
+    try:
+        doc_cache.clear_all_cache()
+        return jsonify({
+            'success': True,
+            'message': 'All cache cleared'
+        })
+    except Exception as e:
+        print(f"Error clearing all cache: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cache/current_document')
+def get_current_document_hash():
+    """Get hash of currently loaded document"""
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'current.pdf')
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'No document loaded'}), 404
+
+        file_hash = doc_cache.calculate_file_hash(filepath)
+        document = doc_cache.get_document(file_hash)
+
+        return jsonify({
+            'success': True,
+            'file_hash': file_hash,
+            'cached': document is not None,
+            'document': document
+        })
+    except Exception as e:
+        print(f"Error getting current document hash: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

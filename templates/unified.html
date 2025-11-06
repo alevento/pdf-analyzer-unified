@@ -81,6 +81,179 @@
             border-color: #c0392b;
         }
 
+        /* Document History Section */
+        .history-section {
+            background: linear-gradient(135deg, #1e2847 0%, #2a3356 100%);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3d4a70;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            overflow: hidden;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s;
+        }
+
+        .history-header:hover {
+            background-color: rgba(91, 143, 255, 0.1);
+        }
+
+        .history-toggle-icon {
+            font-size: 17px;
+            transition: transform 0.3s;
+            display: inline-block;
+        }
+
+        .history-toggle-icon.open {
+            transform: rotate(-180deg);
+        }
+
+        .history-count {
+            background-color: #5b8fff;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .history-content {
+            padding: 0 20px 20px 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #151b3e;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .history-item {
+            background-color: #2a3356;
+            border: 2px solid #3d4a70;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .history-item:hover {
+            background-color: #3d4a70;
+            border-color: #5b8fff;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(91, 143, 255, 0.3);
+        }
+
+        .history-delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: bold;
+        }
+
+        .history-delete-btn:hover {
+            background-color: #c0392b;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+        }
+
+        .history-item-main {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-item-title {
+            font-size: 19px;
+            font-weight: bold;
+            color: #e8ecf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .history-item-path {
+            font-size: 16px;
+            color: #b4bdd4;
+            font-style: italic;
+        }
+
+        .history-item-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .history-stat-badge {
+            background-color: #1e2847;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 16px;
+            color: #e8ecf8;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .history-stat-badge.success {
+            background-color: #1f3a1f;
+            border: 1px solid #4caf50;
+            color: #4caf50;
+        }
+
+        .history-stat-badge.error {
+            background-color: #3d1f1f;
+            border: 1px solid #e74c3c;
+            color: #ff7f7f;
+        }
+
+        .history-stat-badge.warning {
+            background-color: #3d3420;
+            border: 1px solid #ff9800;
+            color: #ffa726;
+        }
+
+        .history-item-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .history-item-date {
+            font-size: 15px;
+            color: #b4bdd4;
+            white-space: nowrap;
+        }
+
+        .history-item-time {
+            font-size: 16px;
+            color: #5b8fff;
+            font-weight: bold;
+        }
+
         .upload-section {
             display: flex;
             align-items: center;
@@ -793,6 +966,33 @@
             </div>
         </header>
 
+        <!-- Document History Section (Collapsible) -->
+        <div class="history-section" id="historySection">
+            <div class="history-header" onclick="toggleHistoryPanel()">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="historyToggleIcon" class="history-toggle-icon">▼</span>
+                    <h3 style="margin: 0; font-size: 21px;">📚 Cronologia Documenti</h3>
+                    <span id="historyCount" class="history-count">0 documenti</span>
+                </div>
+                <button class="btn" onclick="refreshHistory(event)" style="padding: 6px 12px; font-size: 14px;" title="Ricarica cronologia">
+                    🔄
+                </button>
+            </div>
+            <div class="history-content" id="historyContent" style="display: none;">
+                <!-- Filter Input -->
+                <div style="padding: 10px; background-color: #2a3356; border-bottom: 1px solid #3d4a73;">
+                    <input type="text"
+                           id="historyFilterInput"
+                           placeholder="🔍 Filtra per nome documento..."
+                           style="width: 100%; padding: 8px 12px; background-color: #1e2642; color: #e0e0e0; border: 1px solid #3d4a73; border-radius: 4px; font-size: 14px;"
+                           oninput="filterHistory()">
+                </div>
+                <div id="historyList" class="history-list">
+                    <p class="placeholder">Caricamento cronologia...</p>
+                </div>
+            </div>
+        </div>
+
         <div class="selected-text-box" id="selectedTextBox">
             <strong>Testo selezionato:</strong> <span id="selectedText">Clicca su un elemento nella lista o nel documento</span>
         </div>
@@ -804,62 +1004,25 @@
 
                 <!-- Tabs for different extraction modes -->
                 <div class="controls-tabs">
-                    <button class="tab-btn active" data-tab="numbers">Estrazione Numeri Avanzata</button>
-                    <button class="tab-btn" data-tab="pdfplumber">PDFPlumber</button>
-                    <button class="tab-btn" data-tab="ocr">OCR Standard</button>
+                    <button class="tab-btn active" data-tab="unified">Estrazione Intelligente</button>
                     <button class="tab-btn" data-tab="ai" style="background: linear-gradient(135deg, #5b8fff 0%, #a86fff 100%); color: white; border-color: #a86fff;">AI Analysis</button>
                 </div>
 
-                <!-- Numbers Extraction Controls -->
-                <div id="numbers-controls" class="control-section active">
+                <!-- Unified Extraction Controls -->
+                <div id="unified-controls" class="control-section active">
                     <div class="control-group">
-                        <label for="pageSelectNumbers">Pagina:</label>
-                        <input type="number" id="pageSelectNumbers" min="1" value="1" disabled>
-                    </div>
-                    <div class="control-group">
-                        <label for="confidenceThreshold">Soglia confidenza (%):</label>
+                        <label for="confidenceThreshold">Soglia confidenza OCR (%):</label>
                         <input type="number" id="confidenceThreshold" min="0" max="100" value="60" disabled>
                     </div>
-                    <button class="btn btn-success" id="extractNumbersBtn" style="width: 100%; margin-top: 10px;" disabled>
-                        Estrai Numeri Avanzato (0° + 90°)
-                    </button>
-                </div>
-
-                <!-- PDFPlumber Controls -->
-                <div id="pdfplumber-controls" class="control-section">
-                    <div class="control-group">
-                        <label for="pageSelectPdfplumber">Pagina:</label>
-                        <input type="number" id="pageSelectPdfplumber" min="1" value="1" disabled>
+                    <div style="padding: 10px; background-color: #2a3356; border-radius: 4px; margin: 10px 0; font-size: 14px; color: #a0aec0;">
+                        <strong style="color: #5b8fff;">ℹ️ Estrazione Pagina Corrente:</strong><br>
+                        • PDF Testuale → pdfplumber<br>
+                        • PDF Rasterizzato → OCR<br>
+                        • Evidenzia numeri completi (0° e 90°)<br>
+                        • Lavora sulla pagina visualizzata
                     </div>
-                    <div class="control-group">
-                        <label for="rotationSelect">Rotazione:</label>
-                        <select id="rotationSelect" disabled>
-                            <option value="0">0°</option>
-                            <option value="90">90°</option>
-                            <option value="180">180°</option>
-                            <option value="270">270°</option>
-                        </select>
-                    </div>
-                    <button class="btn" id="extractPdfplumberBtn" style="width: 100%; margin-top: 10px;" disabled>
-                        Estrai con pdfplumber
-                    </button>
-                </div>
-
-                <!-- OCR Standard Controls -->
-                <div id="ocr-controls" class="control-section">
-                    <div class="control-group">
-                        <label for="pageSelectOcr">Pagina:</label>
-                        <input type="number" id="pageSelectOcr" min="1" value="1" disabled>
-                    </div>
-                    <div class="control-group">
-                        <label for="psmSelect">OCR PSM Mode:</label>
-                        <select id="psmSelect" disabled>
-                            <option value="6">6 - Blocco uniforme</option>
-                            <option value="12">12 - Testo sparso + OSD</option>
-                        </select>
-                    </div>
-                    <button class="btn" id="extractOcrBtn" style="width: 100%; margin-top: 10px;" disabled>
-                        Estrai con OCR
+                    <button class="btn btn-success" id="extractUnifiedBtn" style="width: 100%; margin-top: 10px; font-size: 16px; font-weight: bold;" disabled>
+                        🔍 Estrai Numeri Pagina Corrente
                     </button>
                 </div>
 
@@ -1154,7 +1317,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='unified.js') }}?v=0.74"></script>
+    <script src="{{ url_for('static', filename='unified.js') }}?v=0.79"></script>
     <script src="{{ url_for('static', filename='dimension_prompts.js') }}"></script>
 </body>
 </html>

@@ -4176,6 +4176,9 @@ async function loadDocumentHistory() {
                         <div class="history-item-date">📅 ${createdAt}</div>
                         <div class="history-item-time">⏱️ ${processingTime}s</div>
                     </div>
+                    <button class="history-analysis-btn" onclick="viewDocumentAnalysis(event, '${doc.file_hash}')" title="Visualizza dati analisi">
+                        📊 Analisi
+                    </button>
                     <button class="history-delete-btn" onclick="deleteDocumentFromHistory(event, '${doc.file_hash}', '${filename}')" title="Elimina da cache">
                         🗑️ Elimina
                     </button>
@@ -4468,6 +4471,204 @@ function enableAIControls() {
     if (askBtn) askBtn.disabled = false;
     if (summarizeBtn) summarizeBtn.disabled = false;
     if (questionInput) questionInput.disabled = false;
+}
+
+/**
+ * View document analysis data
+ */
+async function viewDocumentAnalysis(event, fileHash) {
+    // Prevent event from bubbling to parent
+    event.stopPropagation();
+
+    console.log(`[History] Viewing analysis for document: ${fileHash}`);
+
+    try {
+        const response = await fetch(`/api/document/${fileHash}/analysis`);
+        const data = await response.json();
+
+        if (!data.success) {
+            alert(`Errore: ${data.error}`);
+            return;
+        }
+
+        // Open analysis data in new window
+        const analysisWindow = window.open('', '_blank', 'width=800,height=600');
+
+        if (!analysisWindow) {
+            alert('Impossibile aprire la finestra. Controlla le impostazioni del browser per i popup.');
+            return;
+        }
+
+        // Format analysis data as HTML
+        const analysis = data.analysis;
+        let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Analisi Documento - ${fileHash.substring(0, 8)}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a0e27;
+            color: #e8ecf8;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #5b8fff;
+            border-bottom: 2px solid #3d4a70;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #a86fff;
+            margin-top: 25px;
+        }
+        h3 {
+            color: #8ab4f8;
+        }
+        .section {
+            background-color: #151b3e;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #3d4a70;
+        }
+        .key {
+            font-weight: bold;
+            color: #a86fff;
+        }
+        .value {
+            color: #e8ecf8;
+        }
+        pre {
+            background-color: #0a0e27;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #3d4a70;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        .badge.success { background-color: #27ae60; }
+        .badge.error { background-color: #e74c3c; }
+        .badge.info { background-color: #3498db; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #3d4a70;
+        }
+        th {
+            background-color: #1e2642;
+            color: #5b8fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 Dati Analisi Documento</h1>
+    <div class="section">
+        <p><span class="key">Hash:</span> <span class="value">${fileHash}</span></p>
+        <p><span class="key">PDF Type:</span> <span class="value">${analysis.pdf_type || 'N/A'}</span></p>
+        <p><span class="key">Extraction Method:</span> <span class="value">${analysis.extraction_method || 'N/A'}</span></p>
+        <p><span class="key">Page Count:</span> <span class="value">${analysis.page_count || 'N/A'}</span></p>
+        <p><span class="key">Processing Time:</span> <span class="value">${analysis.processing_time ? analysis.processing_time.toFixed(2) + 's' : 'N/A'}</span></p>
+    </div>
+`;
+
+        // Layout Analysis
+        if (analysis.layout_analysis) {
+            const layout = analysis.layout_analysis;
+            htmlContent += `
+    <h2>📐 Layout Analysis</h2>
+    <div class="section">
+        <p><span class="key">Prompt:</span> <span class="value">${layout.prompt_name || 'N/A'}</span></p>
+        <p><span class="key">Provider:</span> <span class="value">${layout.provider || 'N/A'}</span></p>
+        ${layout.error ? `<p><span class="badge error">ERROR</span> ${layout.error}</p>` : ''}
+        ${layout.analysis ? `
+        <h3>Analysis Result:</h3>
+        <pre>${layout.analysis}</pre>
+        ` : ''}
+    </div>
+`;
+        }
+
+        // Dimensions Extraction
+        if (analysis.dimensions_extraction) {
+            const dims = analysis.dimensions_extraction;
+            const results = dims.results_per_page || {};
+            const pageNumbers = Object.keys(results).sort((a, b) => parseInt(a) - parseInt(b));
+            const successCount = pageNumbers.filter(p => results[p].success).length;
+            const errorCount = pageNumbers.length - successCount;
+
+            htmlContent += `
+    <h2>📏 Dimensions Extraction</h2>
+    <div class="section">
+        <p><span class="key">Prompt:</span> <span class="value">${dims.prompt_name || 'N/A'}</span></p>
+        <p><span class="key">Provider:</span> <span class="value">${dims.provider || 'N/A'}</span></p>
+        <p>
+            <span class="badge success">${successCount} Success</span>
+            <span class="badge error">${errorCount} Errors</span>
+        </p>
+
+        <h3>Results by Page:</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Page</th>
+                    <th>Status</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+`;
+
+            pageNumbers.forEach(pageNum => {
+                const result = results[pageNum];
+                const status = result.success ? '<span class="badge success">OK</span>' : '<span class="badge error">ERROR</span>';
+                const text = result.dimensions_text || result.error || 'N/A';
+                htmlContent += `
+                <tr>
+                    <td>${pageNum}</td>
+                    <td>${status}</td>
+                    <td>${text}</td>
+                </tr>
+`;
+            });
+
+            htmlContent += `
+            </tbody>
+        </table>
+    </div>
+`;
+        }
+
+        // Raw JSON
+        htmlContent += `
+    <h2>🔍 Raw JSON Data</h2>
+    <div class="section">
+        <pre>${JSON.stringify(analysis, null, 2)}</pre>
+    </div>
+</body>
+</html>
+`;
+
+        analysisWindow.document.write(htmlContent);
+        analysisWindow.document.close();
+
+    } catch (error) {
+        console.error('[History] Error viewing analysis:', error);
+        alert(`Errore durante il caricamento dell'analisi: ${error.message}`);
+    }
 }
 
 /**
